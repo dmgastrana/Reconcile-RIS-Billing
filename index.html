@@ -7,8 +7,8 @@
   <!-- SheetJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <!-- New reconciliation logic -->
-  <script src="reconcile.js"></script>
+  <!-- Reconciliation Logic -->
+  <script src="reconcile.js" defer></script>
 
   <style>
     body {
@@ -71,13 +71,6 @@
       background: #1e40af;
     }
 
-    #status {
-      margin-top: 15px;
-      font-weight: bold;
-      text-align: center;
-      color: #333;
-    }
-
     .upload-status {
       margin: 12px 0 28px 0;
       color: green;
@@ -85,45 +78,15 @@
       font-weight: 500;
     }
 
-    #resultsContainer {
-      margin-top: 25px;
-      border-top: 1px solid #ddd;
-      padding-top: 15px;
-      display: none;
+    #summary {
+      margin-top: 20px;
+      white-space: pre-line;
+      font-weight: bold;
+      text-align: center;
     }
 
-    table.results-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 5px;
-      font-size: 14px;
-    }
-
-    table.results-table th,
-    table.results-table td {
-      border: 1px solid #ddd;
-      padding: 6px 8px;
-      text-align: right;
-    }
-
-    table.results-table th:first-child,
-    table.results-table td:first-child {
-      text-align: left;
-    }
-
-    table.results-table th {
-      background: #f3f4f6;
-      font-weight: 600;
-    }
-
-    /* PASSWORD PAGE */
-    #passwordPage {
-      display: block;
-    }
-
-    #reconPage {
-      display: none;
-    }
+    #passwordPage { display: block; }
+    #reconPage { display: none; }
 
     #pwError {
       color: red;
@@ -141,41 +104,32 @@
   <!-- PASSWORD PAGE -->
   <div id="passwordPage">
     <h2>Enter Password</h2>
-    <input id="pwInput" type="password" placeholder="Enter password" style="width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #ccc;">
+    <input id="pwInput" type="password" placeholder="Enter password"
+           style="width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #ccc;">
     <button onclick="checkPassword()">Submit</button>
     <div id="pwError"></div>
   </div>
 
-  <!-- RECONCILIATION PAGE -->
+  <!-- RECON PAGE -->
   <div id="reconPage">
 
     <h2>Reconciliation</h2>
 
-    <label class="upload-btn" for="fileA">Upload Billing Charge Report</label>
-    <input type="file" id="fileA" onchange="showFileName('fileA','fileAStatus')">
-    <div id="fileAStatus" class="upload-status"></div>
+    <!-- BILLING FILE -->
+    <label class="upload-btn" for="billingFile">Upload Billing Charge Report</label>
+    <input type="file" id="billingFile" onchange="showFileName('billingFile','billingStatus')">
+    <div id="billingStatus" class="upload-status"></div>
 
-    <label class="upload-btn" for="fileB">Upload Abbadox RIS Procedure Report</label>
-    <input type="file" id="fileB" onchange="showFileName('fileB','fileBStatus')">
-    <div id="fileBStatus" class="upload-status"></div>
+    <!-- RIS FILE -->
+    <label class="upload-btn" for="risFile">Upload Abbadox RIS Procedure Report</label>
+    <input type="file" id="risFile" onchange="showFileName('risFile','risStatus')">
+    <div id="risStatus" class="upload-status"></div>
 
-    <!-- FIXED BUTTON -->
+    <!-- RECONCILE BUTTON -->
     <button id="runBtn">Reconcile</button>
 
-    <div id="status"></div>
-
-    <div id="resultsContainer">
-      <table class="results-table">
-        <thead>
-          <tr>
-            <th>Reconcile</th>
-            <th>Count</th>
-            <th>Percent</th>
-          </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-      </table>
-    </div>
+    <!-- SUMMARY OUTPUT -->
+    <div id="summary"></div>
 
   </div>
 
