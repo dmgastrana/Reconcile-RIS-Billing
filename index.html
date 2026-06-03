@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Reconciliation Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      width: 600px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .upload-btn {
+      width: 100%;
+      padding: 12px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    .upload-btn:hover {
+      background: #4b5563;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 14px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #1e40af;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      text-align: center;
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h2>Reconciliation</h2>
+
+  <label class="upload-btn" for="fileA">Upload Orders File</label>
+  <input type="file" id="fileA">
+
+  <label class="upload-btn" for="fileB">Upload Accessions File</label>
+  <input type="file" id="fileB">
+
+  <button onclick="runReconciliation()">Reconcile</button>
+
+  <div id="status"></div>
+
+</div>
+
+<script>
+async function readExcel(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            resolve(XLSX.utils.sheet_to_json(sheet));
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+async function runReconciliation() {
+    const fileA = document.getElementById("fileA").files[0];
+    const fileB = document.getElementById("fileB").files[0];
+
+    if (!fileA || !fileB) {
+        alert("Please upload both files.");
+        return;
+    }
+
+    document.getElementById("status").innerText = "Processing...";
+
+    const orders = await readExcel(fileA);
+    const accessions = await readExcel(fileB);
+
+    const accessionMap = {};
+    accessions.forEach(row => {
+        accessionMap[row["Accession Number"]] = true;
+    });
+
+    const noMatch = [];
+    orders.forEach(order => {
+        if (!accessionMap[order["Order Number"]]) {
+            noMatch.push(order);
+        }
+    });
+
+    if (noMatch.length === 0) {
+        document.getElementById("status").innerText = "All orders matched!";
+        return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(noMatch);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "No Match");
+
+    XLSX.writeFile(wb, "no_match_results.xlsx");
+
+    document.getElementById("status").innerText = "No Match file generated!";
+}
+</script>
+
+</body>
+</html>
