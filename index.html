@@ -17,7 +17,7 @@
     .container {
       background: white;
       padding: 30px;
-      width: 600px;
+      width: 650px;
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
@@ -66,32 +66,48 @@
     }
 
     #status {
-      margin-top: 20px;
+      margin-top: 15px;
       font-weight: bold;
       text-align: center;
       color: #333;
     }
 
-    #passwordSection {
-      text-align: center;
-    }
-
-    #passwordInput {
-      width: 80%;
-      padding: 12px;
+    .upload-status {
+      margin: 12px 0 28px 0;
+      color: green;
       font-size: 16px;
-      margin-bottom: 15px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
+      font-weight: 500;
     }
 
-    #errorMsg {
-      color: red;
-      margin-top: 10px;
-    }
-
-    #reconcileSection {
+    #resultsContainer {
+      margin-top: 25px;
+      border-top: 1px solid #ddd;
+      padding-top: 15px;
       display: none;
+    }
+
+    table.results-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 5px;
+      font-size: 14px;
+    }
+
+    table.results-table th,
+    table.results-table td {
+      border: 1px solid #ddd;
+      padding: 6px 8px;
+      text-align: right;
+    }
+
+    table.results-table th:first-child,
+    table.results-table td:first-child {
+      text-align: left;
+    }
+
+    table.results-table th {
+      background: #f3f4f6;
+      font-weight: 600;
     }
   </style>
 </head>
@@ -100,58 +116,39 @@
 
 <div class="container">
 
-  <!-- PASSWORD SCREEN -->
-  <div id="passwordSection">
-    <h2>Enter Password</h2>
-    <input type="password" id="passwordInput" placeholder="Password">
-    <button onclick="checkPassword()">Submit</button>
-    <div id="errorMsg"></div>
-  </div>
+  <h2>Reconciliation</h2>
 
-  <!-- RECONCILIATION UI -->
-  <div id="reconcileSection">
+  <label class="upload-btn" for="fileA">Upload Billing Charge Report</label>
+  <input type="file" id="fileA" onchange="showFileName('fileA','fileAStatus')">
+  <div id="fileAStatus" class="upload-status"></div>
 
-    <h2>Reconciliation</h2>
+  <label class="upload-btn" for="fileB">Upload Abbadox RIS Procedure Report</label>
+  <input type="file" id="fileB" onchange="showFileName('fileB','fileBStatus')">
+  <div id="fileBStatus" class="upload-status"></div>
 
-    <!-- BILLING UPLOAD -->
-    <label class="upload-btn" for="fileA">Upload Billing Charge Report</label>
-    <input type="file" id="fileA" onchange="showFileName('fileA','fileAStatus')">
-    <div id="fileAStatus" style="margin: 10px 0 25px 0; color: green; font-size: 15px;"></div>
+  <button onclick="runReconciliation()">Reconcile</button>
 
-    <!-- RIS UPLOAD -->
-    <label class="upload-btn" for="fileB">Upload Abbadox RIS Procedure Report</label>
-    <input type="file" id="fileB" onchange="showFileName('fileB','fileBStatus')">
-    <div id="fileBStatus" style="margin: 10px 0 25px 0; color: green; font-size: 15px;"></div>
+  <div id="status"></div>
 
-    <button onclick="runReconciliation()">Reconcile</button>
-
-    <div id="status"></div>
-
+  <div id="resultsContainer">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Reconcile</th>
+          <th>Count</th>
+          <th>Percent</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
   </div>
 
 </div>
 
 <script>
-/* PASSWORD */
-const CORRECT_PASSWORD = "dmg1129";
-
-function checkPassword() {
-    const input = document.getElementById("passwordInput").value;
-    const error = document.getElementById("errorMsg");
-
-    if (input === CORRECT_PASSWORD) {
-        document.getElementById("passwordSection").style.display = "none";
-        document.getElementById("reconcileSection").style.display = "block";
-    } else {
-        error.textContent = "Incorrect password";
-    }
-}
-
-/* SHOW FILE NAME */
 function showFileName(inputId, statusId) {
     const fileInput = document.getElementById(inputId);
     const statusDiv = document.getElementById(statusId);
-
     if (fileInput.files.length > 0) {
         statusDiv.textContent = "Uploaded: " + fileInput.files[0].name;
     } else {
@@ -159,7 +156,6 @@ function showFileName(inputId, statusId) {
     }
 }
 
-/* READ EXCEL */
 async function readExcel(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -173,10 +169,9 @@ async function readExcel(file) {
     });
 }
 
-/* MAIN RECONCILIATION */
 async function runReconciliation() {
-    const fileA = document.getElementById("fileA").files[0]; // Billing
-    const fileB = document.getElementById("fileB").files[0]; // RIS
+    const fileA = document.getElementById("fileA").files[0];
+    const fileB = document.getElementById("fileB").files[0];
 
     if (!fileA || !fileB) {
         alert("Please upload both files.");
@@ -184,17 +179,16 @@ async function runReconciliation() {
     }
 
     document.getElementById("status").innerText = "Processing...";
+    document.getElementById("resultsContainer").style.display = "none";
 
     const billingRows = await readExcel(fileA);
     const risRows = await readExcel(fileB);
 
-    // Normalize values
     const normalize = (val) => {
         if (!val) return "";
         return String(val).trim().replace(/^0+/, "").replace(/\s+/g, "");
     };
 
-    // Build Billing map: Order Num → Billing row
     const billingMap = {};
     billingRows.forEach(row => {
         const orderNum = normalize(row["Order Num"]);
@@ -204,42 +198,64 @@ async function runReconciliation() {
     const matches = [];
     const noMatch = [];
 
-    // RIS-driven matching
     risRows.forEach(risRow => {
         const acc = normalize(risRow["Accession Number"]);
-
         if (acc && billingMap[acc]) {
-            matches.push({
-                ...risRow,          // RIS LEFT
-                ...billingMap[acc]  // BILLING RIGHT
-            });
+            matches.push({ ...risRow, ...billingMap[acc] });
         } else {
-            noMatch.push(risRow);   // RIS NO MATCH
+            noMatch.push(risRow);
         }
     });
 
-    // MATCH FILE
-    if (matches.length > 0) {
-        const wsMatch = XLSX.utils.json_to_sheet(matches);
-        const wbMatch = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wbMatch, wsMatch, "Matches");
-        XLSX.writeFile(wbMatch, "matched_side_by_side.xlsx");
-    }
+    // MATCH Excel
+    const wsMatch = XLSX.utils.json_to_sheet(matches);
+    const wbMatch = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbMatch, wsMatch, "Matches");
+    XLSX.writeFile(wbMatch, "matched_side_by_side.xlsx");
 
-    // NO MATCH FILE (RIS ONLY)
-    if (noMatch.length > 0) {
-        const wsNoMatch = XLSX.utils.json_to_sheet(noMatch);
-        const wbNoMatch = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wbNoMatch, wsNoMatch, "RIS_No_Match");
-        XLSX.writeFile(wbNoMatch, "ris_no_match.xlsx");
-    }
+    // NO MATCH Excel
+    const wsNoMatch = XLSX.utils.json_to_sheet(noMatch);
+    const wbNoMatch = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbNoMatch, wsNoMatch, "RIS_No_Match");
+    XLSX.writeFile(wbNoMatch, "ris_no_match.xlsx");
 
-    document.getElementById("status").innerText =
-        "MATCH (RIS left + Billing right) and RIS NO MATCH files generated!";
+    // SUMMARY Excel
+    const matchCount = matches.length;
+    const noMatchCount = noMatch.length;
+    const total = matchCount + noMatchCount;
+
+    const pct = (count) => (total === 0 ? "0%" : (count * 100 / total).toFixed(2) + "%");
+
+    const summaryData = [
+        { Reconcile: "MATCH", Count: matchCount, Percent: pct(matchCount) },
+        { Reconcile: "NO MATCH", Count: noMatchCount, Percent: pct(noMatchCount) },
+        { Reconcile: "Grand Total", Count: total, Percent: "100%" }
+    ];
+
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    const wbSummary = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbSummary, wsSummary, "Summary");
+    XLSX.writeFile(wbSummary, "Reconciliation_Summary.xlsx");
+
+    // Show summary on screen
+    const resultsBody = document.getElementById("resultsBody");
+    resultsBody.innerHTML = "";
+
+    summaryData.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${r.Reconcile}</td>
+            <td>${r.Count.toLocaleString()}</td>
+            <td>${r.Percent}</td>
+        `;
+        resultsBody.appendChild(tr);
+    });
+
+    document.getElementById("resultsContainer").style.display = "block";
+    document.getElementById("status").innerText = "Excel output generated.";
 }
 </script>
 
 </body>
 </html>
-
 
