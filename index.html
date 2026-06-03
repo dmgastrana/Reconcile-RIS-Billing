@@ -71,6 +71,30 @@
       text-align: center;
       color: #333;
     }
+
+    /* Password section styling */
+    #passwordSection {
+      text-align: center;
+    }
+
+    #passwordInput {
+      width: 80%;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    #errorMsg {
+      color: red;
+      margin-top: 10px;
+    }
+
+    /* Hide reconciliation UI until password is correct */
+    #reconcileSection {
+      display: none;
+    }
   </style>
 </head>
 
@@ -78,21 +102,49 @@
 
 <div class="container">
 
-  <h2>Reconciliation</h2>
+  <!-- PASSWORD SCREEN -->
+  <div id="passwordSection">
+    <h2>Enter Password</h2>
+    <input type="password" id="passwordInput" placeholder="Password">
+    <button onclick="checkPassword()">Submit</button>
+    <div id="errorMsg"></div>
+  </div>
 
-  <label class="upload-btn" for="fileA">Upload Orders File</label>
-  <input type="file" id="fileA">
+  <!-- RECONCILIATION UI -->
+  <div id="reconcileSection">
 
-  <label class="upload-btn" for="fileB">Upload Accessions File</label>
-  <input type="file" id="fileB">
+    <h2>Reconciliation</h2>
 
-  <button onclick="runReconciliation()">Reconcile</button>
+    <label class="upload-btn" for="fileA">Upload Orders File</label>
+    <input type="file" id="fileA">
 
-  <div id="status"></div>
+    <label class="upload-btn" for="fileB">Upload Accessions File</label>
+    <input type="file" id="fileB">
+
+    <button onclick="runReconciliation()">Reconcile</button>
+
+    <div id="status"></div>
+
+  </div>
 
 </div>
 
 <script>
+/* CHANGE YOUR PASSWORD HERE */
+const CORRECT_PASSWORD = "dmg1129";
+
+function checkPassword() {
+    const input = document.getElementById("passwordInput").value;
+    const error = document.getElementById("errorMsg");
+
+    if (input === CORRECT_PASSWORD) {
+        document.getElementById("passwordSection").style.display = "none";
+        document.getElementById("reconcileSection").style.display = "block";
+    } else {
+        error.textContent = "Incorrect password";
+    }
+}
+
 async function readExcel(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
