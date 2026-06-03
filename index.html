@@ -37,7 +37,7 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
-      margin-bottom: 10px;
+      margin-bottom: 5px;
     }
 
     .upload-btn:hover {
@@ -116,12 +116,12 @@
     <!-- BILLING UPLOAD -->
     <label class="upload-btn" for="fileA">Upload Billing Charge Report</label>
     <input type="file" id="fileA" onchange="showFileName('fileA','fileAStatus')">
-    <div id="fileAStatus" style="margin-bottom: 15px; color: green;"></div>
+    <div id="fileAStatus" style="margin: 10px 0 25px 0; color: green; font-size: 15px;"></div>
 
     <!-- RIS UPLOAD -->
     <label class="upload-btn" for="fileB">Upload Abbadox RIS Procedure Report</label>
     <input type="file" id="fileB" onchange="showFileName('fileB','fileBStatus')">
-    <div id="fileBStatus" style="margin-bottom: 15px; color: green;"></div>
+    <div id="fileBStatus" style="margin: 10px 0 25px 0; color: green; font-size: 15px;"></div>
 
     <button onclick="runReconciliation()">Reconcile</button>
 
