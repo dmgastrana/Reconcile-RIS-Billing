@@ -1,77 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>RIS–Billing Reconciliation</title>
+  <meta charset="UTF-8">
+  <title>Reconciliation Tool</title>
 
-    <!-- SheetJS (Excel reader/writer) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <!-- Reconciliation logic -->
-    <script src="reconcile.js"></script>
+  <!-- New reconciliation logic -->
+  <script src="reconcile.js"></script>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background: #f7f7f7;
-        }
-        h2 {
-            margin-bottom: 10px;
-        }
-        .box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            width: 600px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        label {
-            font-weight: bold;
-        }
-        input[type="file"] {
-            margin-top: 6px;
-            margin-bottom: 20px;
-        }
-        button {
-            padding: 10px 20px;
-            background: #0078d4;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 15px;
-        }
-        button:hover {
-            background: #005fa3;
-        }
-        pre {
-            background: #222;
-            color: #0f0;
-            padding: 15px;
-            border-radius: 6px;
-            margin-top: 20px;
-            width: 600px;
-            overflow-x: auto;
-        }
-    </style>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      width: 650px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .upload-btn {
+      width: 100%;
+      padding: 12px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-bottom: 5px;
+    }
+
+    .upload-btn:hover {
+      background: #4b5563;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 14px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #1e40af;
+    }
+
+    #status {
+      margin-top: 15px;
+      font-weight: bold;
+      text-align: center;
+      color: #333;
+    }
+
+    .upload-status {
+      margin: 12px 0 28px 0;
+      color: green;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    #resultsContainer {
+      margin-top: 25px;
+      border-top: 1px solid #ddd;
+      padding-top: 15px;
+      display: none;
+    }
+
+    table.results-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 5px;
+      font-size: 14px;
+    }
+
+    table.results-table th,
+    table.results-table td {
+      border: 1px solid #ddd;
+      padding: 6px 8px;
+      text-align: right;
+    }
+
+    table.results-table th:first-child,
+    table.results-table td:first-child {
+      text-align: left;
+    }
+
+    table.results-table th {
+      background: #f3f4f6;
+      font-weight: 600;
+    }
+
+    /* PASSWORD PAGE */
+    #passwordPage {
+      display: block;
+    }
+
+    #reconPage {
+      display: none;
+    }
+
+    #pwError {
+      color: red;
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 
 <body>
 
-    <div class="box">
-        <h2>RIS–Billing Reconciliation Tool</h2>
+<div class="container">
 
-        <label>Upload RIS File (Sheet: "RIS - Appointment Procedure Sum")</label><br>
-        <input type="file" id="risFile" accept=".xlsx,.xls,.csv"><br>
+  <!-- PASSWORD PAGE -->
+  <div id="passwordPage">
+    <h2>Enter Password</h2>
+    <input id="pwInput" type="password" placeholder="Enter password" style="width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #ccc;">
+    <button onclick="checkPassword()">Submit</button>
+    <div id="pwError"></div>
+  </div>
 
-        <label>Upload Billing File (Sheet: "Report_ChargeTransactionDetail")</label><br>
-        <input type="file" id="billingFile" accept=".xlsx,.xls,.csv"><br>
+  <!-- RECONCILIATION PAGE -->
+  <div id="reconPage">
 
-        <button id="runBtn">Run Reconciliation</button>
+    <h2>Reconciliation</h2>
 
-        <pre id="summary">Summary will appear here…</pre>
+    <label class="upload-btn" for="fileA">Upload Billing Charge Report</label>
+    <input type="file" id="fileA" onchange="showFileName('fileA','fileAStatus')">
+    <div id="fileAStatus" class="upload-status"></div>
+
+    <label class="upload-btn" for="fileB">Upload Abbadox RIS Procedure Report</label>
+    <input type="file" id="fileB" onchange="showFileName('fileB','fileBStatus')">
+    <div id="fileBStatus" class="upload-status"></div>
+
+    <button onclick="runReconciliation()">Reconcile</button>
+
+    <div id="status"></div>
+
+    <div id="resultsContainer">
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Reconcile</th>
+            <th>Count</th>
+            <th>Percent</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
     </div>
+
+  </div>
+
+</div>
+
+<script>
+function checkPassword() {
+  const pw = document.getElementById("pwInput").value;
+  if (pw === "1234") {
+    document.getElementById("passwordPage").style.display = "none";
+    document.getElementById("reconPage").style.display = "block";
+  } else {
+    document.getElementById("pwError").textContent = "Incorrect password";
+  }
+}
+
+function showFileName(inputId, statusId) {
+  const fileInput = document.getElementById(inputId);
+  const statusDiv = document.getElementById(statusId);
+  if (fileInput.files.length > 0) {
+    statusDiv.textContent = "Uploaded: " + fileInput.files[0].name;
+  } else {
+    statusDiv.textContent = "";
+  }
+}
+</script>
 
 </body>
 </html>
