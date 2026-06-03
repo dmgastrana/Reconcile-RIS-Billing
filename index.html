@@ -37,7 +37,7 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
 
     .upload-btn:hover {
@@ -113,11 +113,15 @@
 
     <h2>Reconciliation</h2>
 
+    <!-- BILLING UPLOAD -->
     <label class="upload-btn" for="fileA">Upload Billing Charge Report</label>
-    <input type="file" id="fileA">
+    <input type="file" id="fileA" onchange="showFileName('fileA','fileAStatus')">
+    <div id="fileAStatus" style="margin-bottom: 15px; color: green;"></div>
 
+    <!-- RIS UPLOAD -->
     <label class="upload-btn" for="fileB">Upload Abbadox RIS Procedure Report</label>
-    <input type="file" id="fileB">
+    <input type="file" id="fileB" onchange="showFileName('fileB','fileBStatus')">
+    <div id="fileBStatus" style="margin-bottom: 15px; color: green;"></div>
 
     <button onclick="runReconciliation()">Reconcile</button>
 
@@ -143,6 +147,19 @@ function checkPassword() {
     }
 }
 
+/* SHOW FILE NAME */
+function showFileName(inputId, statusId) {
+    const fileInput = document.getElementById(inputId);
+    const statusDiv = document.getElementById(statusId);
+
+    if (fileInput.files.length > 0) {
+        statusDiv.textContent = "Uploaded: " + fileInput.files[0].name;
+    } else {
+        statusDiv.textContent = "";
+    }
+}
+
+/* READ EXCEL */
 async function readExcel(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -156,6 +173,7 @@ async function readExcel(file) {
     });
 }
 
+/* MAIN RECONCILIATION */
 async function runReconciliation() {
     const fileA = document.getElementById("fileA").files[0]; // Billing
     const fileB = document.getElementById("fileB").files[0]; // RIS
@@ -172,11 +190,8 @@ async function runReconciliation() {
 
     // Normalize values
     const normalize = (val) => {
-        if (val === undefined || val === null) return "";
-        return String(val)
-            .trim()
-            .replace(/^0+/, "")
-            .replace(/\s+/g, "");
+        if (!val) return "";
+        return String(val).trim().replace(/^0+/, "").replace(/\s+/g, "");
     };
 
     // Build Billing map: Order Num → Billing row
@@ -194,18 +209,16 @@ async function runReconciliation() {
         const acc = normalize(risRow["Accession Number"]);
 
         if (acc && billingMap[acc]) {
-            // Side-by-side: RIS left, Billing right
             matches.push({
-                ...risRow,
-                ...billingMap[acc]
+                ...risRow,          // RIS LEFT
+                ...billingMap[acc]  // BILLING RIGHT
             });
         } else {
-            // NO MATCH = RIS row only
-            noMatch.push(risRow);
+            noMatch.push(risRow);   // RIS NO MATCH
         }
     });
 
-    // MATCH file
+    // MATCH FILE
     if (matches.length > 0) {
         const wsMatch = XLSX.utils.json_to_sheet(matches);
         const wbMatch = XLSX.utils.book_new();
@@ -213,7 +226,7 @@ async function runReconciliation() {
         XLSX.writeFile(wbMatch, "matched_side_by_side.xlsx");
     }
 
-    // NO MATCH file (RIS rows only)
+    // NO MATCH FILE (RIS ONLY)
     if (noMatch.length > 0) {
         const wsNoMatch = XLSX.utils.json_to_sheet(noMatch);
         const wbNoMatch = XLSX.utils.book_new();
