@@ -59,7 +59,6 @@ async function runReconciliation() {
     const { header: billHeader, data: billData } = extractRows(billingWs, 0);
 
     // Build index on the column that matches RIS Accession Number
-    // (Your billing file uses "Order Num")
     const billIndex = buildIndex(billHeader, billData, "Order Num");
 
     // -------------------------
@@ -70,8 +69,8 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // RIS header row is row 1 (index 0)
-    const { header: risHeader, data: risData } = extractRows(risWs, 0);
+    // ⭐ FIX APPLIED: RIS header row is row 8 → index 7
+    const { header: risHeader, data: risData } = extractRows(risWs, 7);
 
     // Find Accession Number column
     const risAccCol = risHeader.findIndex(
