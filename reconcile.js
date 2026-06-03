@@ -1,46 +1,9 @@
 // =========================
-// CONFIG
+// Utility Functions
 // =========================
-const RIS_SHEET = "RIS - Appointment Procedure Sum";
-const RIS_HEADER_ROW = 8; // 1-based
-const BILL_SHEET = "Report_ChargeTransactionDetail";
-const BILL_HEADER_ROW = 10; // 1-based
 
-// RIS headers A–U
-const RIS_HEADERS = [
-  "Modality","Location","Resource Name","Technologist","Radiologist",
-  "Date of Service","Appointment ID","Accession Number","Dictation Status",
-  "MRN","Patient Name","Patient DOB","Procedure","Exam Code","CPT Code",
-  "Appointment Status","Order Priority","Referring Provider",
-  "Payer Attached to Procedure","Primary Payer","Secondary Payer"
-];
-
-// Billing headers A–N
-const BILL_HEADERS = [
-  "Patient","Location","DOS","Charge Post","Procedure","ASA Code",
-  "Charge Amt","Total Payment","Max Pay Date","Max Pay Post",
-  "Primary Ins","Secondary Ins","Tertiary Ins","Order Num"
-];
-
-// =========================
-// UTILITIES
-// =========================
-function normalize(v) {
-  return v == null ? "" : String(v).trim();
-}
-
-function readWorkbook(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
-        resolve(wb);
-      } catch (err) { reject(err); }
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  });
+function normalize(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
 function extractRows(ws, headerRowIndex) {
@@ -56,115 +19,144 @@ function extractRows(ws, headerRowIndex) {
     rows.push(row);
   }
 
-  const header = rows[headerRowIndex - 1] || [];
-  const data = rows.slice(headerRowIndex);
-
+  const header = rows[headerRowIndex];
+  const data = rows.slice(headerRowIndex + 1);
   return { header, data };
 }
 
 function buildIndex(header, data, keyName) {
-  const col = header.findIndex(h => normalize(h) === keyName);
-  const map = new Map();
+  const keyCol = header.findIndex(h => normalize(h) === normalize(keyName));
+  const index = new Map();
+
+  if (keyCol === -1) return index;
 
   for (const row of data) {
-    const key = normalize(row[col]);
-    if (key && !map.has(key)) map.set(key, row);
+    const key = normalize(row[keyCol]);
+    if (key) index.set(key, row);
   }
 
-  return { map, col };
+  return index;
 }
 
 // =========================
-// MAIN RECONCILIATION
+// Main Reconciliation
 // =========================
-async function runReconciliation() {
-  const risFile = document.getElementById("risFile").files[0];
-  const billFile = document.getElementById("billingFile").files[0];
-  const summary = document.getElementById("summary");
 
-  if (!risFile || !billFile) {
-    summary.textContent = "Select both RIS and Billing files.";
-    return;
-  }
+async function runReconciliation() {
+  const summary = document.getElementById("summary");
+  summary.textContent = "Processing…";
 
   try {
-    const [risWb, billWb] = await Promise.all([
-      readWorkbook(risFile),
-      readWorkbook(billFile)
-    ]);
+    // -------------------------
+    // Load Billing File
+    // -------------------------
+    const billingFile = document.getElementById("billingFile").files[0];
+    const billingData = await billingFile.arrayBuffer();
+    const billingWb = XLSX.read(billingData);
+    const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    const risWs = risWb.Sheets[RIS_SHEET];
-    const billWs = billWb.Sheets[BILL_SHEET];
+    // Billing header row is row 1 (index 0)
+    const { header: billHeader, data: billData } = extractRows(billingWs, 0);
 
-    if (!risWs) throw new Error(`Missing sheet: ${RIS_SHEET}`);
-    if (!billWs) throw new Error(`Missing sheet: ${BILL_SHEET}`);
+    // Build index on the column that matches RIS Accession Number
+    // (Your billing file uses "Order Num")
+    const billIndex = buildIndex(billHeader, billData, "Order Num");
 
-    // Extract RIS rows
-    const { header: risHeader, data: risData } =
-      extractRows(risWs, RIS_HEADER_ROW);
+    // -------------------------
+    // Load RIS File
+    // -------------------------
+    const risFile = document.getElementById("risFile").files[0];
+    const risDataBuf = await risFile.arrayBuffer();
+    const risWb = XLSX.read(risDataBuf);
+    const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // Extract Billing rows
-    const { header: billHeader, data: billData } =
-      extractRows(billWs, BILL_HEADER_ROW);
+    // RIS header row is row 1 (index 0)
+    const { header: risHeader, data: risData } = extractRows(risWs, 0);
 
-    // Build Billing index on Order Num
-    const { map: billIndex } =
-      buildIndex(billHeader, billData, "Order Num");
+    // Find Accession Number column
+    const risAccCol = risHeader.findIndex(
+      h => normalize(h) === "accession number"
+    );
 
-    // Find RIS Accession Number column
-    const risAccCol = risHeader.findIndex(h => normalize(h) === "Accession Number");
+    if (risAccCol === -1) {
+      summary.textContent = "ERROR: RIS file missing 'Accession Number' column.";
+      return;
+    }
 
-    // Output arrays
+    // -------------------------
+    // Reconciliation Logic
+    // -------------------------
     const MATCH = [];
     const NOMATCH = [];
-
-    const outputHeader = [...RIS_HEADERS, "Reconcile", ...BILL_HEADERS];
 
     let matchCount = 0;
     let noMatchCount = 0;
 
     for (const row of risData) {
-      if (!row.some(v => v !== "")) continue;
-
+      // Extract accession
       const acc = normalize(row[risAccCol]);
-      const risOut = RIS_HEADERS.map((h, i) => row[i] ?? "");
+
+      // Skip rows with no accession number
+      if (!acc) continue;
+
+      // Build RIS output row
+      const risOut = risHeader.map((h, i) => row[i] ?? "");
 
       if (billIndex.has(acc)) {
         const billRow = billIndex.get(acc);
-        const billOut = BILL_HEADERS.map((h, i) => billRow[i] ?? "");
+        const billOut = billHeader.map((h, i) => billRow[i] ?? "");
         MATCH.push([...risOut, "MATCH", ...billOut]);
         matchCount++;
       } else {
-        NOMATCH.push([...risOut, "NO MATCH", ...Array(BILL_HEADERS.length).fill("")]);
+        NOMATCH.push([
+          ...risOut,
+          "NO MATCH",
+          ...Array(billHeader.length).fill("")
+        ]);
         noMatchCount++;
       }
     }
 
-    const total = matchCount + noMatchCount;
+    // -------------------------
+    // Build Output Workbook
+    // -------------------------
+    const outWb = XLSX.utils.book_new();
 
-    // Build workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([outputHeader, ...MATCH]), "MATCH");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([outputHeader, ...NOMATCH]), "NO MATCH");
+    const matchSheet = XLSX.utils.aoa_to_sheet([
+      [...risHeader, "Status", ...billHeader],
+      ...MATCH
+    ]);
+    XLSX.utils.book_append_sheet(outWb, matchSheet, "MATCH");
+
+    const noMatchSheet = XLSX.utils.aoa_to_sheet([
+      [...risHeader, "Status", ...billHeader],
+      ...NOMATCH
+    ]);
+    XLSX.utils.book_append_sheet(outWb, noMatchSheet, "NO MATCH");
 
     const summarySheet = XLSX.utils.aoa_to_sheet([
-      ["Reconcile", "Count", "Percent"],
-      ["MATCH", matchCount, matchCount / total],
-      ["NO MATCH", noMatchCount, noMatchCount / total],
-      ["Grand Total", total, 1]
+      ["MATCH", matchCount],
+      ["NO MATCH", noMatchCount],
+      ["TOTAL ACCESSIONS", matchCount + noMatchCount]
     ]);
-    XLSX.utils.book_append_sheet(wb, summarySheet, "SUMMARY");
+    XLSX.utils.book_append_sheet(outWb, summarySheet, "SUMMARY");
 
-    XLSX.writeFile(wb, "RIS_Billing_Reconciliation.xlsx");
+    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
 
+    // -------------------------
+    // UI Summary
+    // -------------------------
     summary.textContent =
-      `MATCH: ${matchCount}\nNO MATCH: ${noMatchCount}\nTOTAL: ${total}`;
+      `MATCH: ${matchCount}\n` +
+      `NO MATCH: ${noMatchCount}\n` +
+      `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
 
   } catch (err) {
     summary.textContent = "ERROR: " + err.message;
   }
 }
 
+// Attach handler
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("runBtn").onclick = runReconciliation;
 });
