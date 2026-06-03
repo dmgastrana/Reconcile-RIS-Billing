@@ -1,261 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Reconciliation Tool</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <meta charset="UTF-8">
+    <title>RIS–Billing Reconciliation</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      margin: 0;
-      padding: 40px;
-      display: flex;
-      justify-content: center;
-    }
+    <!-- SheetJS (Excel reader/writer) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-    .container {
-      background: white;
-      padding: 30px;
-      width: 650px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
+    <!-- Reconciliation logic -->
+    <script src="reconcile.js"></script>
 
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
-
-    .upload-btn {
-      width: 100%;
-      padding: 12px;
-      background: #6b7280;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      margin-bottom: 5px;
-    }
-
-    .upload-btn:hover {
-      background: #4b5563;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    button {
-      width: 100%;
-      margin-top: 10px;
-      padding: 14px;
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    button:hover {
-      background: #1e40af;
-    }
-
-    #status {
-      margin-top: 15px;
-      font-weight: bold;
-      text-align: center;
-      color: #333;
-    }
-
-    .upload-status {
-      margin: 12px 0 28px 0;
-      color: green;
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    #resultsContainer {
-      margin-top: 25px;
-      border-top: 1px solid #ddd;
-      padding-top: 15px;
-      display: none;
-    }
-
-    table.results-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 5px;
-      font-size: 14px;
-    }
-
-    table.results-table th,
-    table.results-table td {
-      border: 1px solid #ddd;
-      padding: 6px 8px;
-      text-align: right;
-    }
-
-    table.results-table th:first-child,
-    table.results-table td:first-child {
-      text-align: left;
-    }
-
-    table.results-table th {
-      background: #f3f4f6;
-      font-weight: 600;
-    }
-  </style>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f7f7f7;
+        }
+        h2 {
+            margin-bottom: 10px;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 600px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="file"] {
+            margin-top: 6px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        button:hover {
+            background: #005fa3;
+        }
+        pre {
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            width: 600px;
+            overflow-x: auto;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="container">
+    <div class="box">
+        <h2>RIS–Billing Reconciliation Tool</h2>
 
-  <h2>Reconciliation</h2>
+        <label>Upload RIS File (Sheet: "RIS - Appointment Procedure Sum")</label><br>
+        <input type="file" id="risFile" accept=".xlsx,.xls,.csv"><br>
 
-  <label class="upload-btn" for="fileA">Upload Billing Charge Report</label>
-  <input type="file" id="fileA" onchange="showFileName('fileA','fileAStatus')">
-  <div id="fileAStatus" class="upload-status"></div>
+        <label>Upload Billing File (Sheet: "Report_ChargeTransactionDetail")</label><br>
+        <input type="file" id="billingFile" accept=".xlsx,.xls,.csv"><br>
 
-  <label class="upload-btn" for="fileB">Upload Abbadox RIS Procedure Report</label>
-  <input type="file" id="fileB" onchange="showFileName('fileB','fileBStatus')">
-  <div id="fileBStatus" class="upload-status"></div>
+        <button id="runBtn">Run Reconciliation</button>
 
-  <button onclick="runReconciliation()">Reconcile</button>
-
-  <div id="status"></div>
-
-  <div id="resultsContainer">
-    <table class="results-table">
-      <thead>
-        <tr>
-          <th>Reconcile</th>
-          <th>Count</th>
-          <th>Percent</th>
-        </tr>
-      </thead>
-      <tbody id="resultsBody"></tbody>
-    </table>
-  </div>
-
-</div>
-
-<script>
-function showFileName(inputId, statusId) {
-    const fileInput = document.getElementById(inputId);
-    const statusDiv = document.getElementById(statusId);
-    if (fileInput.files.length > 0) {
-        statusDiv.textContent = "Uploaded: " + fileInput.files[0].name;
-    } else {
-        statusDiv.textContent = "";
-    }
-}
-
-async function readExcel(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array" });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            resolve(XLSX.utils.sheet_to_json(sheet));
-        };
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-async function runReconciliation() {
-    const fileA = document.getElementById("fileA").files[0];
-    const fileB = document.getElementById("fileB").files[0];
-
-    if (!fileA || !fileB) {
-        alert("Please upload both files.");
-        return;
-    }
-
-    document.getElementById("status").innerText = "Processing...";
-    document.getElementById("resultsContainer").style.display = "none";
-
-    const billingRows = await readExcel(fileA);
-    const risRows = await readExcel(fileB);
-
-    const normalize = (val) => {
-        if (!val) return "";
-        return String(val).trim().replace(/^0+/, "").replace(/\s+/g, "");
-    };
-
-    const billingMap = {};
-    billingRows.forEach(row => {
-        const orderNum = normalize(row["Order Num"]);
-        if (orderNum) billingMap[orderNum] = row;
-    });
-
-    const matches = [];
-    const noMatch = [];
-
-    risRows.forEach(risRow => {
-        const acc = normalize(risRow["Accession Number"]);
-        if (acc && billingMap[acc]) {
-            matches.push({ ...risRow, ...billingMap[acc] });
-        } else {
-            noMatch.push(risRow);
-        }
-    });
-
-    // MATCH Excel
-    const wsMatch = XLSX.utils.json_to_sheet(matches);
-    const wbMatch = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wbMatch, wsMatch, "Matches");
-    XLSX.writeFile(wbMatch, "matched_side_by_side.xlsx");
-
-    // NO MATCH Excel
-    const wsNoMatch = XLSX.utils.json_to_sheet(noMatch);
-    const wbNoMatch = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wbNoMatch, wsNoMatch, "RIS_No_Match");
-    XLSX.writeFile(wbNoMatch, "ris_no_match.xlsx");
-
-    // SUMMARY Excel
-    const matchCount = matches.length;
-    const noMatchCount = noMatch.length;
-    const total = matchCount + noMatchCount;
-
-    const pct = (count) => (total === 0 ? "0%" : (count * 100 / total).toFixed(2) + "%");
-
-    const summaryData = [
-        { Reconcile: "MATCH", Count: matchCount, Percent: pct(matchCount) },
-        { Reconcile: "NO MATCH", Count: noMatchCount, Percent: pct(noMatchCount) },
-        { Reconcile: "Grand Total", Count: total, Percent: "100%" }
-    ];
-
-    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-    const wbSummary = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wbSummary, wsSummary, "Summary");
-    XLSX.writeFile(wbSummary, "Reconciliation_Summary.xlsx");
-
-    // Show summary on screen
-    const resultsBody = document.getElementById("resultsBody");
-    resultsBody.innerHTML = "";
-
-    summaryData.forEach(r => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${r.Reconcile}</td>
-            <td>${r.Count.toLocaleString()}</td>
-            <td>${r.Percent}</td>
-        `;
-        resultsBody.appendChild(tr);
-    });
-
-    document.getElementById("resultsContainer").style.display = "block";
-    document.getElementById("status").innerText = "Excel output generated.";
-}
-</script>
+        <pre id="summary">Summary will appear here…</pre>
+    </div>
 
 </body>
 </html>
-
