@@ -72,7 +72,6 @@
       color: #333;
     }
 
-    /* Password section styling */
     #passwordSection {
       text-align: center;
     }
@@ -91,7 +90,6 @@
       margin-top: 10px;
     }
 
-    /* Hide reconciliation UI until password is correct */
     #reconcileSection {
       display: none;
     }
@@ -130,7 +128,7 @@
 </div>
 
 <script>
-/* CHANGE YOUR PASSWORD HERE */
+/* PASSWORD */
 const CORRECT_PASSWORD = "dmg1129";
 
 function checkPassword() {
@@ -159,8 +157,8 @@ async function readExcel(file) {
 }
 
 async function runReconciliation() {
-    const fileA = document.getElementById("fileA").files[0];
-    const fileB = document.getElementById("fileB").files[0];
+    const fileA = document.getElementById("fileA").files[0]; // Billing
+    const fileB = document.getElementById("fileB").files[0]; // RIS
 
     if (!fileA || !fileB) {
         alert("Please upload both files.");
@@ -169,35 +167,65 @@ async function runReconciliation() {
 
     document.getElementById("status").innerText = "Processing...";
 
-    const orders = await readExcel(fileA);
-    const accessions = await readExcel(fileB);
+    const billingRows = await readExcel(fileA);
+    const risRows = await readExcel(fileB);
 
-    const accessionMap = {};
-    accessions.forEach(row => {
-        accessionMap[row["Accession Number"]] = true;
+    // Normalize values
+    const normalize = (val) => {
+        if (val === undefined || val === null) return "";
+        return String(val)
+            .trim()
+            .replace(/^0+/, "")
+            .replace(/\s+/g, "");
+    };
+
+    // Build Billing map: Order Num → Billing row
+    const billingMap = {};
+    billingRows.forEach(row => {
+        const orderNum = normalize(row["Order Num"]);
+        if (orderNum) billingMap[orderNum] = row;
     });
 
+    const matches = [];
     const noMatch = [];
-    orders.forEach(order => {
-        if (!accessionMap[order["Order Number"]]) {
-            noMatch.push(order);
+
+    // RIS-driven matching
+    risRows.forEach(risRow => {
+        const acc = normalize(risRow["Accession Number"]);
+
+        if (acc && billingMap[acc]) {
+            // Side-by-side: RIS left, Billing right
+            matches.push({
+                ...risRow,
+                ...billingMap[acc]
+            });
+        } else {
+            // NO MATCH = RIS row only
+            noMatch.push(risRow);
         }
     });
 
-    if (noMatch.length === 0) {
-        document.getElementById("status").innerText = "All orders matched!";
-        return;
+    // MATCH file
+    if (matches.length > 0) {
+        const wsMatch = XLSX.utils.json_to_sheet(matches);
+        const wbMatch = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wbMatch, wsMatch, "Matches");
+        XLSX.writeFile(wbMatch, "matched_side_by_side.xlsx");
     }
 
-    const ws = XLSX.utils.json_to_sheet(noMatch);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "No Match");
+    // NO MATCH file (RIS rows only)
+    if (noMatch.length > 0) {
+        const wsNoMatch = XLSX.utils.json_to_sheet(noMatch);
+        const wbNoMatch = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wbNoMatch, wsNoMatch, "RIS_No_Match");
+        XLSX.writeFile(wbNoMatch, "ris_no_match.xlsx");
+    }
 
-    XLSX.writeFile(wb, "no_match_results.xlsx");
-
-    document.getElementById("status").innerText = "No Match file generated!";
+    document.getElementById("status").innerText =
+        "MATCH (RIS left + Billing right) and RIS NO MATCH files generated!";
 }
 </script>
 
 </body>
 </html>
+
