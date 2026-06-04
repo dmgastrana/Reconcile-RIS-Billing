@@ -25,7 +25,7 @@ function extractRows(ws, headerRowIndex) {
 }
 
 // =========================
-// DATE FORMATTING
+// DATE FORMATTING (FINAL FIX)
 // =========================
 
 const RIS_DATE_COLS = [4, 10];     // Date of Service, DOB
@@ -38,9 +38,19 @@ function applyDateFormatting(ws, dateCols, startRow = 1) {
     for (const c of dateCols) {
       const cellAddr = XLSX.utils.encode_cell({ r, c });
       const cell = ws[cellAddr];
-      if (!cell || !cell.v) continue;
+      if (!cell || cell.v === undefined || cell.v === null) continue;
 
-      const parsed = new Date(cell.v);
+      let parsed;
+
+      // Case 1: Excel serial number (e.g., 46024)
+      if (typeof cell.v === "number") {
+        parsed = new Date(Date.UTC(1899, 11, 30) + cell.v * 86400000);
+      }
+      // Case 2: String date
+      else {
+        parsed = new Date(cell.v);
+      }
+
       if (isNaN(parsed.getTime())) continue;
 
       // Convert JS Date → Excel serial number
