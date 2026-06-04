@@ -25,46 +25,6 @@ function extractRows(ws, headerRowIndex) {
 }
 
 // =========================
-// DATE FORMATTING (FINAL FIX)
-// =========================
-
-const RIS_DATE_COLS = [4, 10];     // Date of Service, DOB
-const BILL_DATE_COLS = [2, 3, 8, 9]; // DOS, Charge Post, Max Pay Date, Max Pay Post
-
-function applyDateFormatting(ws, dateCols, startRow = 1) {
-  const range = XLSX.utils.decode_range(ws["!ref"]);
-
-  for (let r = startRow; r <= range.e.r; r++) {
-    for (const c of dateCols) {
-      const cellAddr = XLSX.utils.encode_cell({ r, c });
-      const cell = ws[cellAddr];
-      if (!cell || cell.v === undefined || cell.v === null) continue;
-
-      let parsed;
-
-      // Case 1: Excel serial number (e.g., 46024)
-      if (typeof cell.v === "number") {
-        parsed = new Date(Date.UTC(1899, 11, 30) + cell.v * 86400000);
-      }
-      // Case 2: String date
-      else {
-        parsed = new Date(cell.v);
-      }
-
-      if (isNaN(parsed.getTime())) continue;
-
-      // Convert JS Date → Excel serial number
-      const excelSerial =
-        (parsed - new Date(Date.UTC(1899, 11, 30))) / 86400000;
-
-      cell.v = excelSerial;
-      cell.t = "n";
-      cell.z = "00/00/0000";
-    }
-  }
-}
-
-// =========================
 // Main Reconciliation
 // =========================
 
@@ -163,7 +123,6 @@ async function runReconciliation() {
       ...MATCH
     ]);
     XLSX.utils.book_append_sheet(outWb, matchSheet, "MATCH");
-    applyDateFormatting(outWb.Sheets["MATCH"], [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
 
     // NO MATCH sheet
     const noMatchSheet = XLSX.utils.aoa_to_sheet([
@@ -171,7 +130,6 @@ async function runReconciliation() {
       ...NOMATCH
     ]);
     XLSX.utils.book_append_sheet(outWb, noMatchSheet, "NO MATCH");
-    applyDateFormatting(outWb.Sheets["NO MATCH"], [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
 
     // SUMMARY sheet
     XLSX.utils.book_append_sheet(
