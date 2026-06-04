@@ -49,9 +49,11 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // Billing header is in Excel row 1 → JS index 0
-    const BILL_HEADER_ROW = 0;
-    const BILL_KEY_COL = 13; // Column N = index 13
+    // Billing header is in Excel row 10 → JS index 9
+    const BILL_HEADER_ROW = 9;
+
+    // Order Num is last column (index 13)
+    const BILL_KEY_COL = 13;
 
     const { header: billHeader, data: billData } = extractRows(billingWs, BILL_HEADER_ROW);
 
@@ -82,7 +84,9 @@ async function runReconciliation() {
 
     // RIS header is in Excel row 8 → JS index 7
     const RIS_HEADER_ROW = 7;
-    const RIS_KEY_COL = 7; // Column H = index 7
+
+    // Accession Number is column H → index 7
+    const RIS_KEY_COL = 7;
 
     const { header: risHeader, data: risData } = extractRows(risWs, RIS_HEADER_ROW);
 
