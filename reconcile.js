@@ -3,7 +3,6 @@
 // =========================
 
 function normalizeAccession(value) {
-  // EXACT VBA behavior: Trim only
   return String(value || "").trim();
 }
 
@@ -26,13 +25,11 @@ function extractRows(ws, headerRowIndex) {
 }
 
 // =========================
-// DATE FORMATTING (ONLY ADDITION YOU REQUESTED)
+// DATE FORMATTING
 // =========================
 
-// RIS: Date of Service (E=4), Patient DOB (K=10)
-// BILLING: DOS (2), Charge Post (3), Max Pay Date (8), Max Pay Post (9)
-const RIS_DATE_COLS = [4, 10];
-const BILL_DATE_COLS = [2, 3, 8, 9];
+const RIS_DATE_COLS = [4, 10];     // Date of Service, DOB
+const BILL_DATE_COLS = [2, 3, 8, 9]; // DOS, Charge Post, Max Pay Date, Max Pay Post
 
 function applyDateFormatting(ws, dateCols, startRow = 1) {
   const range = XLSX.utils.decode_range(ws["!ref"]);
@@ -44,8 +41,6 @@ function applyDateFormatting(ws, dateCols, startRow = 1) {
       if (!cell || !cell.v) continue;
 
       const parsed = new Date(cell.v);
-
-      // Skip non-dates
       if (isNaN(parsed.getTime())) continue;
 
       // Convert JS Date → Excel serial number
@@ -53,8 +48,8 @@ function applyDateFormatting(ws, dateCols, startRow = 1) {
         (parsed - new Date(Date.UTC(1899, 11, 30))) / 86400000;
 
       cell.v = excelSerial;
-      cell.t = "n";               // numeric cell (Excel date)
-      cell.z = "00/00/0000";      // your required format
+      cell.t = "n";
+      cell.z = "00/00/0000";
     }
   }
 }
@@ -67,7 +62,7 @@ async function runReconciliation() {
   const summary = document.getElementById("summary");
   summary.textContent = "Processing…";
 
-  await new Promise(r => setTimeout(r, 50)); // UI update
+  await new Promise(r => setTimeout(r, 50));
 
   try {
     // -------------------------
@@ -83,23 +78,19 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // Billing header is in Excel row 10 → JS index 9
     const BILL_HEADER_ROW = 9;
-
-    // Order Num is last column (index 13)
     const BILL_KEY_COL = 13;
 
-    const { header: billHeader, data: billData } = extractRows(billingWs, BILL_HEADER_ROW);
+    const { header: billHeader, data: billData } =
+      extractRows(billingWs, BILL_HEADER_ROW);
 
-    // Build dictionary EXACTLY like VBA
     const billDict = new Map();
 
     for (let i = 0; i < billData.length; i++) {
       const row = billData[i];
       const key = normalizeAccession(row[BILL_KEY_COL]);
-
       if (key.length > 0 && !billDict.has(key)) {
-        billDict.set(key, i); // store FIRST matching row only
+        billDict.set(key, i);
       }
     }
 
@@ -116,13 +107,11 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // RIS header is in Excel row 8 → JS index 7
     const RIS_HEADER_ROW = 7;
-
-    // Accession Number is column H → index 7
     const RIS_KEY_COL = 7;
 
-    const { header: risHeader, data: risData } = extractRows(risWs, RIS_HEADER_ROW);
+    const { header: risHeader, data: risData } =
+      extractRows(risWs, RIS_HEADER_ROW);
 
     // -------------------------
     // Reconciliation Logic
@@ -145,7 +134,6 @@ async function runReconciliation() {
       if (billDict.has(accession)) {
         const billIndex = billDict.get(accession);
         const billRow = billData[billIndex];
-
         MATCH.push([...risRow, "MATCH", ...billRow]);
         matchCount++;
       } else {
@@ -160,16 +148,22 @@ async function runReconciliation() {
     const outWb = XLSX.utils.book_new();
 
     // MATCH sheet
-    const matchSheet = XLSX.utils.aoa_to_sheet([[...risHeader, "Status", ...billHeader], ...MATCH]);
-    applyDateFormatting(matchSheet, [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
+    const matchSheet = XLSX.utils.aoa_to_sheet([
+      [...risHeader, "Status", ...billHeader],
+      ...MATCH
+    ]);
     XLSX.utils.book_append_sheet(outWb, matchSheet, "MATCH");
+    applyDateFormatting(outWb.Sheets["MATCH"], [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
 
     // NO MATCH sheet
-    const noMatchSheet = XLSX.utils.aoa_to_sheet([[...risHeader, "Status", ...billHeader], ...NOMATCH]);
-    applyDateFormatting(noMatchSheet, [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
+    const noMatchSheet = XLSX.utils.aoa_to_sheet([
+      [...risHeader, "Status", ...billHeader],
+      ...NOMATCH
+    ]);
     XLSX.utils.book_append_sheet(outWb, noMatchSheet, "NO MATCH");
+    applyDateFormatting(outWb.Sheets["NO MATCH"], [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
 
-    // SUMMARY sheet (unchanged)
+    // SUMMARY sheet
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
