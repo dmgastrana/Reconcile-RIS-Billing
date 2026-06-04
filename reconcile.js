@@ -48,10 +48,13 @@ function applyDateFormatting(ws, dateCols, startRow = 1) {
       // Skip non-dates
       if (isNaN(parsed.getTime())) continue;
 
-      // Convert to Excel date with format 00/00/0000
-      cell.v = parsed;
-      cell.t = "d";
-      cell.z = "00/00/0000";
+      // Convert JS Date → Excel serial number
+      const excelSerial =
+        (parsed - new Date(Date.UTC(1899, 11, 30))) / 86400000;
+
+      cell.v = excelSerial;
+      cell.t = "n";               // numeric cell (Excel date)
+      cell.z = "00/00/0000";      // your required format
     }
   }
 }
