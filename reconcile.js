@@ -26,6 +26,37 @@ function extractRows(ws, headerRowIndex) {
 }
 
 // =========================
+// DATE FORMATTING (ONLY ADDITION YOU REQUESTED)
+// =========================
+
+// RIS: Date of Service (E=4), Patient DOB (K=10)
+// BILLING: DOS (2), Charge Post (3), Max Pay Date (8), Max Pay Post (9)
+const RIS_DATE_COLS = [4, 10];
+const BILL_DATE_COLS = [2, 3, 8, 9];
+
+function applyDateFormatting(ws, dateCols, startRow = 1) {
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+
+  for (let r = startRow; r <= range.e.r; r++) {
+    for (const c of dateCols) {
+      const cellAddr = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[cellAddr];
+      if (!cell || !cell.v) continue;
+
+      const parsed = new Date(cell.v);
+
+      // Skip non-dates
+      if (isNaN(parsed.getTime())) continue;
+
+      // Convert to Excel date with format 00/00/0000
+      cell.v = parsed;
+      cell.t = "d";
+      cell.z = "00/00/0000";
+    }
+  }
+}
+
+// =========================
 // Main Reconciliation
 // =========================
 
@@ -125,18 +156,17 @@ async function runReconciliation() {
     // -------------------------
     const outWb = XLSX.utils.book_new();
 
-    XLSX.utils.book_append_sheet(
-      outWb,
-      XLSX.utils.aoa_to_sheet([[...risHeader, "Status", ...billHeader], ...MATCH]),
-      "MATCH"
-    );
+    // MATCH sheet
+    const matchSheet = XLSX.utils.aoa_to_sheet([[...risHeader, "Status", ...billHeader], ...MATCH]);
+    applyDateFormatting(matchSheet, [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
+    XLSX.utils.book_append_sheet(outWb, matchSheet, "MATCH");
 
-    XLSX.utils.book_append_sheet(
-      outWb,
-      XLSX.utils.aoa_to_sheet([[...risHeader, "Status", ...billHeader], ...NOMATCH]),
-      "NO MATCH"
-    );
+    // NO MATCH sheet
+    const noMatchSheet = XLSX.utils.aoa_to_sheet([[...risHeader, "Status", ...billHeader], ...NOMATCH]);
+    applyDateFormatting(noMatchSheet, [...RIS_DATE_COLS, ...BILL_DATE_COLS], 1);
+    XLSX.utils.book_append_sheet(outWb, noMatchSheet, "NO MATCH");
 
+    // SUMMARY sheet (unchanged)
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
