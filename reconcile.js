@@ -55,8 +55,8 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // Billing header row is row 1 (index 0)
-    const { header: billHeader, data: billData } = extractRows(billingWs, 0);
+    // ⭐ Billing header row is Excel row 10 → index 9
+    const { header: billHeader, data: billData } = extractRows(billingWs, 9);
 
     // Build index on the column that matches RIS Accession Number
     const billIndex = buildIndex(billHeader, billData, "Order Num");
@@ -69,7 +69,7 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // ⭐ FIX APPLIED: RIS header row is row 8 → index 7
+    // ⭐ RIS header row is Excel row 8 → index 7
     const { header: risHeader, data: risData } = extractRows(risWs, 7);
 
     // Find Accession Number column
@@ -92,13 +92,10 @@ async function runReconciliation() {
     let noMatchCount = 0;
 
     for (const row of risData) {
-      // Extract accession
       const acc = normalize(row[risAccCol]);
 
-      // Skip rows with no accession number
       if (!acc) continue;
 
-      // Build RIS output row
       const risOut = risHeader.map((h, i) => row[i] ?? "");
 
       if (billIndex.has(acc)) {
@@ -154,8 +151,3 @@ async function runReconciliation() {
     summary.textContent = "ERROR: " + err.message;
   }
 }
-
-// Attach handler
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("runBtn").onclick = runReconciliation;
-});
