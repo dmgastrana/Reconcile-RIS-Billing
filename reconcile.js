@@ -6,6 +6,13 @@ function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+// VBA-style normalization: strip all non-digits
+function normalizeAccession(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\D/g, "");
+}
+
 function extractRows(ws, headerRowIndex) {
   const range = XLSX.utils.decode_range(ws["!ref"]);
   const rows = [];
@@ -31,7 +38,7 @@ function buildIndex(header, data, keyName) {
   if (keyCol === -1) return index;
 
   for (const row of data) {
-    const key = normalize(row[keyCol]);
+    const key = normalizeAccession(row[keyCol]);
     if (key) index.set(key, row);
   }
 
@@ -55,10 +62,19 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // ⭐ Billing header row is Excel row 10 → index 9
-    const { header: billHeader, data: billData } = extractRows(billingWs, 9);
+    // ⭐ AUTO-DETECT BILLING HEADER ROW (search for "Order Num")
+    let billHeaderRow = 0;
+    for (let i = 0; i < 40; i++) {
+      const { header } = extractRows(billingWs, i);
+      if (header.some(h => normalize(h) === "order num")) {
+        billHeaderRow = i;
+        break;
+      }
+    }
 
-    // Build index on the column that matches RIS Accession Number
+    const { header: billHeader, data: billData } = extractRows(billingWs, billHeaderRow);
+
+    // Build index on Order Num
     const billIndex = buildIndex(billHeader, billData, "Order Num");
 
     // -------------------------
@@ -69,8 +85,17 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // ⭐ RIS header row is Excel row 8 → index 7
-    const { header: risHeader, data: risData } = extractRows(risWs, 7);
+    // ⭐ AUTO-DETECT RIS HEADER ROW (search for "Accession Number")
+    let risHeaderRow = 0;
+    for (let i = 0; i < 40; i++) {
+      const { header } = extractRows(risWs, i);
+      if (header.some(h => normalize(h) === "accession number")) {
+        risHeaderRow = i;
+        break;
+      }
+    }
+
+    const { header: risHeader, data: risData } = extractRows(risWs, risHeaderRow);
 
     // Find Accession Number column
     const risAccCol = risHeader.findIndex(
@@ -92,8 +117,7 @@ async function runReconciliation() {
     let noMatchCount = 0;
 
     for (const row of risData) {
-      const acc = normalize(row[risAccCol]);
-
+      const acc = normalizeAccession(row[risAccCol]);
       if (!acc) continue;
 
       const risOut = risHeader.map((h, i) => row[i] ?? "");
@@ -139,9 +163,6 @@ async function runReconciliation() {
 
     XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
 
-    // -------------------------
-    // UI Summary
-    // -------------------------
     summary.textContent =
       `MATCH: ${matchCount}\n` +
       `NO MATCH: ${noMatchCount}\n` +
