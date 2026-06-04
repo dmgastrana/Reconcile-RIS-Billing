@@ -25,6 +25,26 @@ function extractRows(ws, headerRowIndex) {
 }
 
 // =========================
+// Convert ANY Excel date to readable string
+// =========================
+
+function fixDate(v) {
+  // Excel serial number
+  if (typeof v === "number") {
+    const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+    return d.toLocaleDateString("en-US");
+  }
+
+  // Text date
+  const d = new Date(v);
+  if (!isNaN(d)) {
+    return d.toLocaleDateString("en-US");
+  }
+
+  return v; // Not a date
+}
+
+// =========================
 // Main Reconciliation
 // =========================
 
@@ -101,13 +121,48 @@ async function runReconciliation() {
 
       if (!accession) continue;
 
+      // Fix RIS dates
+      const risDOS = fixDate(risRow[4]);
+      const risDOB = fixDate(risRow[10]);
+
       if (billDict.has(accession)) {
         const billIndex = billDict.get(accession);
         const billRow = billData[billIndex];
-        MATCH.push([...risRow, "MATCH", ...billRow]);
+
+        // Fix Billing dates
+        const billDOS = fixDate(billRow[2]);
+        const billPost = fixDate(billRow[3]);
+        const billMaxPay = fixDate(billRow[8]);
+        const billMaxPost = fixDate(billRow[9]);
+
+        MATCH.push([
+          ...risRow.slice(0, 4),
+          risDOS,
+          ...risRow.slice(5, 10),
+          risDOB,
+          ...risRow.slice(11),
+          "MATCH",
+          ...billRow.slice(0, 2),
+          billDOS,
+          billPost,
+          ...billRow.slice(4, 8),
+          billMaxPay,
+          billMaxPost,
+          ...billRow.slice(10)
+        ]);
+
         matchCount++;
       } else {
-        NOMATCH.push([...risRow, "NO MATCH", ...emptyBillRow]);
+        NOMATCH.push([
+          ...risRow.slice(0, 4),
+          risDOS,
+          ...risRow.slice(5, 10),
+          risDOB,
+          ...risRow.slice(11),
+          "NO MATCH",
+          ...emptyBillRow
+        ]);
+
         noMatchCount++;
       }
     }
