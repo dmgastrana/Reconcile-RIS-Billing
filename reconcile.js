@@ -2,14 +2,9 @@
 // Utility Functions
 // =========================
 
-function normalize(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
 function normalizeAccession(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\D/g, "");
+  // EXACT VBA behavior: Trim only, no stripping
+  return String(value || "").trim();
 }
 
 function extractRows(ws, headerRowIndex) {
@@ -30,20 +25,6 @@ function extractRows(ws, headerRowIndex) {
   return { header, data };
 }
 
-function buildIndex(header, data, keyName) {
-  const keyCol = header.findIndex(h => normalize(h) === normalize(keyName));
-  const index = new Map();
-
-  if (keyCol === -1) return index;
-
-  for (const row of data) {
-    const key = normalizeAccession(row[keyCol]);
-    if (key) index.set(key, row);
-  }
-
-  return index;
-}
-
 // =========================
 // Main Reconciliation
 // =========================
@@ -53,7 +34,7 @@ async function runReconciliation() {
   summary.textContent = "Processing…";
 
   // Force UI update
-  await Promise.resolve();
+  await new Promise(r => setTimeout(r, 50));
 
   try {
     // -------------------------
@@ -69,8 +50,25 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    const { header: billHeader, data: billData } = extractRows(billingWs, 9);
-    const billIndex = buildIndex(billHeader, billData, "Order Num");
+    // VBA starts at row 11 → header row is 10 (0‑based)
+    const BILL_HEADER_ROW = 10;
+    const BILL_KEY_COL = 13; // Column N = index 13
+
+    const { header: billHeader, data: billData } = extractRows(billingWs, BILL_HEADER_ROW);
+
+    // Build dictionary EXACTLY like VBA
+    const billDict = new Map();
+
+    for (let i = 0; i < billData.length; i++) {
+      const row = billData[i];
+      const key = normalizeAccession(row[BILL_KEY_COL]);
+
+      if (key.length > 0) {
+        if (!billDict.has(key)) {
+          billDict.set(key, i); // store FIRST matching row only
+        }
+      }
+    }
 
     // -------------------------
     // Load RIS File
@@ -85,16 +83,11 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    const { header: risHeader, data: risData } = extractRows(risWs, 7);
+    // VBA starts at row 9 → header row is 8 (0‑based)
+    const RIS_HEADER_ROW = 8;
+    const RIS_KEY_COL = 7; // Column H = index 7
 
-    const risAccCol = risHeader.findIndex(
-      h => normalize(h) === "accession number"
-    );
-
-    if (risAccCol === -1) {
-      summary.textContent = "ERROR: RIS file missing 'Accession Number' column.";
-      return;
-    }
+    const { header: risHeader, data: risData } = extractRows(risWs, RIS_HEADER_ROW);
 
     // -------------------------
     // Reconciliation Logic
@@ -105,26 +98,22 @@ async function runReconciliation() {
     let matchCount = 0;
     let noMatchCount = 0;
 
-    const risRows = risData.map(row => risHeader.map((h, i) => row[i] ?? ""));
-
-    const billRows = {};
-    for (const [key, row] of billIndex.entries()) {
-      billRows[key] = billHeader.map((h, i) => row[i] ?? "");
-    }
-
     const emptyBillRow = Array(billHeader.length).fill("");
 
     for (let i = 0; i < risData.length; i++) {
-      const acc = normalizeAccession(risData[i][risAccCol]);
-      if (!acc) continue;
+      const risRow = risData[i];
+      const accession = normalizeAccession(risRow[RIS_KEY_COL]);
 
-      const risOut = risRows[i];
+      if (!accession) continue;
 
-      if (billRows[acc]) {
-        MATCH.push([...risOut, "MATCH", ...billRows[acc]]);
+      if (billDict.has(accession)) {
+        const billIndex = billDict.get(accession);
+        const billRow = billData[billIndex];
+
+        MATCH.push([...risRow, "MATCH", ...billRow]);
         matchCount++;
       } else {
-        NOMATCH.push([...risOut, "NO MATCH", ...emptyBillRow]);
+        NOMATCH.push([...risRow, "NO MATCH", ...emptyBillRow]);
         noMatchCount++;
       }
     }
@@ -167,4 +156,5 @@ async function runReconciliation() {
     summary.textContent = "ERROR: " + err.message;
   }
 }
+
 
