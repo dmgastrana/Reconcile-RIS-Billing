@@ -50,7 +50,7 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // VBA starts at row 11 → header row is 10 (0‑based)
+    // VBA: header row = Excel row 11 → JS index 10
     const BILL_HEADER_ROW = 10;
     const BILL_KEY_COL = 13; // Column N = index 13
 
@@ -83,8 +83,8 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // VBA starts at row 9 → header row is 8 (0‑based)
-    const RIS_HEADER_ROW = 8;
+    // VBA: header row = Excel row 8 → JS index 7
+    const RIS_HEADER_ROW = 7;
     const RIS_KEY_COL = 7; // Column H = index 7
 
     const { header: risHeader, data: risData } = extractRows(risWs, RIS_HEADER_ROW);
@@ -156,5 +156,3 @@ async function runReconciliation() {
     summary.textContent = "ERROR: " + err.message;
   }
 }
-
-
