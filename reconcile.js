@@ -3,7 +3,7 @@
 // =========================
 
 function normalizeAccession(value) {
-  // EXACT VBA behavior: Trim only, no stripping
+  // EXACT VBA behavior: Trim only
   return String(value || "").trim();
 }
 
@@ -33,8 +33,7 @@ async function runReconciliation() {
   const summary = document.getElementById("summary");
   summary.textContent = "Processing…";
 
-  // Force UI update
-  await new Promise(r => setTimeout(r, 50));
+  await new Promise(r => setTimeout(r, 50)); // UI update
 
   try {
     // -------------------------
@@ -50,8 +49,8 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // VBA: header row = Excel row 11 → JS index 10
-    const BILL_HEADER_ROW = 10;
+    // Billing header is in Excel row 1 → JS index 0
+    const BILL_HEADER_ROW = 0;
     const BILL_KEY_COL = 13; // Column N = index 13
 
     const { header: billHeader, data: billData } = extractRows(billingWs, BILL_HEADER_ROW);
@@ -63,10 +62,8 @@ async function runReconciliation() {
       const row = billData[i];
       const key = normalizeAccession(row[BILL_KEY_COL]);
 
-      if (key.length > 0) {
-        if (!billDict.has(key)) {
-          billDict.set(key, i); // store FIRST matching row only
-        }
+      if (key.length > 0 && !billDict.has(key)) {
+        billDict.set(key, i); // store FIRST matching row only
       }
     }
 
@@ -83,7 +80,7 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // VBA: header row = Excel row 8 → JS index 7
+    // RIS header is in Excel row 8 → JS index 7
     const RIS_HEADER_ROW = 7;
     const RIS_KEY_COL = 7; // Column H = index 7
 
@@ -98,7 +95,8 @@ async function runReconciliation() {
     let matchCount = 0;
     let noMatchCount = 0;
 
-    const emptyBillRow = Array(billHeader.length).fill("");
+    const billColumnCount = billHeader.length;
+    const emptyBillRow = Array(billColumnCount).fill("");
 
     for (let i = 0; i < risData.length; i++) {
       const risRow = risData[i];
