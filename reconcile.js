@@ -6,7 +6,7 @@ function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-// VBA-style normalization: strip all non-digits
+// VBA-style normalization: strip all non-digits so JS matches like Excel/VBA
 function normalizeAccession(value) {
   return String(value || "")
     .trim()
@@ -62,19 +62,10 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // ⭐ AUTO-DETECT BILLING HEADER ROW (search for "Order Num")
-    let billHeaderRow = 0;
-    for (let i = 0; i < 40; i++) {
-      const { header } = extractRows(billingWs, i);
-      if (header.some(h => normalize(h) === "order num")) {
-        billHeaderRow = i;
-        break;
-      }
-    }
+    // Billing header row is Excel row 10 → index 9
+    const { header: billHeader, data: billData } = extractRows(billingWs, 9);
 
-    const { header: billHeader, data: billData } = extractRows(billingWs, billHeaderRow);
-
-    // Build index on Order Num
+    // Build index on the column that matches RIS Accession Number
     const billIndex = buildIndex(billHeader, billData, "Order Num");
 
     // -------------------------
@@ -85,17 +76,8 @@ async function runReconciliation() {
     const risWb = XLSX.read(risDataBuf);
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
-    // ⭐ AUTO-DETECT RIS HEADER ROW (search for "Accession Number")
-    let risHeaderRow = 0;
-    for (let i = 0; i < 40; i++) {
-      const { header } = extractRows(risWs, i);
-      if (header.some(h => normalize(h) === "accession number")) {
-        risHeaderRow = i;
-        break;
-      }
-    }
-
-    const { header: risHeader, data: risData } = extractRows(risWs, risHeaderRow);
+    // RIS header row is Excel row 8 → index 7
+    const { header: risHeader, data: risData } = extractRows(risWs, 7);
 
     // Find Accession Number column
     const risAccCol = risHeader.findIndex(
@@ -108,31 +90,38 @@ async function runReconciliation() {
     }
 
     // -------------------------
-    // Reconciliation Logic
-    // -------------------------
+    // Reconciliation Logic (optimized)
+// -------------------------
     const MATCH = [];
     const NOMATCH = [];
 
     let matchCount = 0;
     let noMatchCount = 0;
 
-    for (const row of risData) {
-      const acc = normalizeAccession(row[risAccCol]);
+    // Prebuild RIS rows (fast: no map inside main loop)
+    const risRows = risData.map(row => risHeader.map((h, i) => row[i] ?? ""));
+
+    // Prebuild Billing rows (fast lookup by normalized accession)
+    const billRows = {};
+    for (const [key, row] of billIndex.entries()) {
+      billRows[key] = billHeader.map((h, i) => row[i] ?? "");
+    }
+
+    // Prebuild empty billing row for NO MATCH
+    const emptyBillRow = Array(billHeader.length).fill("");
+
+    // Single fast loop over RIS
+    for (let i = 0; i < risData.length; i++) {
+      const acc = normalizeAccession(risData[i][risAccCol]);
       if (!acc) continue;
 
-      const risOut = risHeader.map((h, i) => row[i] ?? "");
+      const risOut = risRows[i];
 
-      if (billIndex.has(acc)) {
-        const billRow = billIndex.get(acc);
-        const billOut = billHeader.map((h, i) => billRow[i] ?? "");
-        MATCH.push([...risOut, "MATCH", ...billOut]);
+      if (billRows[acc]) {
+        MATCH.push([...risOut, "MATCH", ...billRows[acc]]);
         matchCount++;
       } else {
-        NOMATCH.push([
-          ...risOut,
-          "NO MATCH",
-          ...Array(billHeader.length).fill("")
-        ]);
+        NOMATCH.push([...risOut, "NO MATCH", ...emptyBillRow]);
         noMatchCount++;
       }
     }
@@ -163,6 +152,9 @@ async function runReconciliation() {
 
     XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
 
+    // -------------------------
+    // UI Summary
+    // -------------------------
     summary.textContent =
       `MATCH: ${matchCount}\n` +
       `NO MATCH: ${noMatchCount}\n` +
@@ -172,3 +164,4 @@ async function runReconciliation() {
     summary.textContent = "ERROR: " + err.message;
   }
 }
+
