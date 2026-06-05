@@ -161,10 +161,11 @@ async function runReconciliation() {
     // -------------------------
     const outWb = XLSX.utils.book_new();
 
+    // ⭐ CHANGE "Status" → "Reconcile"
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
-        [...risHeader, "Status", ...billHeader],
+        [...risHeader, "Reconcile", ...billHeader],
         ...MATCH
       ]),
       "MATCH"
@@ -173,18 +174,26 @@ async function runReconciliation() {
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
-        [...risHeader, "Status", ...billHeader],
+        [...risHeader, "Reconcile", ...billHeader],
         ...NOMATCH
       ]),
       "NO MATCH"
     );
 
+    // -------------------------
+    // ⭐ UPDATED SUMMARY SHEET (3 columns + percentages)
+    // -------------------------
+    const total = matchCount + noMatchCount;
+    const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
+    const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
+
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
-        ["MATCH", matchCount],
-        ["NO MATCH", noMatchCount],
-        ["TOTAL ACCESSIONS", matchCount + noMatchCount]
+        ["Reconcile", "Count", "Percent"],
+        ["MATCH", matchCount, matchPct],
+        ["NO MATCH", noMatchCount, noMatchPct],
+        ["TOTAL ACCESSION", total, "100%"]
       ]),
       "SUMMARY"
     );
@@ -196,7 +205,7 @@ async function runReconciliation() {
       `NO MATCH: ${noMatchCount}\n` +
       `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
 
-    // ⭐⭐⭐ REQUIRED FOR TABLE + PERCENT DISPLAY IN index.html
+    // ⭐ REQUIRED FOR WEBPAGE TABLE DISPLAY
     window.matchCount = matchCount;
     window.noMatchCount = noMatchCount;
 
