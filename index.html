@@ -80,9 +80,12 @@
 
     #summary {
       margin-top: 20px;
-      white-space: pre-line;
+      white-space: pre;
       font-weight: bold;
-      text-align: center;
+      text-align: left;
+      font-family: monospace;
+      font-size: 16px;
+      line-height: 1.6;
     }
 
     #passwordPage { display: block; }
@@ -156,23 +159,19 @@ function showFileName(inputId, statusId) {
   }
 }
 
-// ⭐ CONNECT BUTTON TO RECONCILIATION
 document.getElementById("runBtn").addEventListener("click", async () => {
   await runReconciliation();
 
-  // ⭐ AFTER runReconciliation() finishes, these values exist globally:
-  // matchCount, noMatchCount
+  const total = window.matchCount + window.noMatchCount;
 
-  const total = matchCount + noMatchCount;
-
-  const matchPct = ((matchCount / total) * 100).toFixed(2);
-  const noMatchPct = ((noMatchCount / total) * 100).toFixed(2);
+  const matchPct = ((window.matchCount / total) * 100).toFixed(2);
+  const noMatchPct = ((window.noMatchCount / total) * 100).toFixed(2);
 
   document.getElementById("summary").textContent =
-    "Reconcile\t\tCount\tPercent\n" +
-    "MATCH\t\t" + matchCount.toLocaleString() + "\t" + matchPct + "%\n" +
-    "NO MATCH\t" + noMatchCount.toLocaleString() + "\t" + noMatchPct + "%\n" +
-    "TOTAL ACCESSION\t" + total.toLocaleString() + "\t100%";
+    "Reconcile            Count       Percent\n" +
+    "MATCH                " + window.matchCount.toLocaleString() + "       " + matchPct + "%\n" +
+    "NO MATCH             " + window.noMatchCount.toLocaleString() + "       " + noMatchPct + "%\n" +
+    "TOTAL ACCESSION      " + total.toLocaleString() + "       100%";
 });
 </script>
 
