@@ -1,179 +1,207 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Reconciliation Tool</title>
+// =========================
+// Utility Functions
+// =========================
 
-  <!-- SheetJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+function normalizeAccession(value) {
+  return String(value || "").trim();
+}
 
-  <!-- Reconciliation Logic -->
-  <script src="reconcile.js"></script>
+function extractRows(ws, headerRowIndex) {
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  const rows = [];
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      margin: 0;
-      padding: 40px;
-      display: flex;
-      justify-content: center;
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      row.push(cell ? cell.v : "");
     }
+    rows.push(row);
+  }
 
-    .container {
-      background: white;
-      padding: 30px;
-      width: 650px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
+  const header = rows[headerRowIndex];
+  const data = rows.slice(headerRowIndex + 1);
+  return { header, data };
+}
 
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
+// Convert Excel serial or text date → "MM/DD/YYYY"
+function fixDate(v) {
+  let d;
 
-    .upload-btn {
-      width: 100%;
-      padding: 12px;
-      background: #6b7280;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      margin-bottom: 5px;
-    }
-
-    .upload-btn:hover {
-      background: #4b5563;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    button {
-      width: 100%;
-      margin-top: 10px;
-      padding: 14px;
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    button:hover {
-      background: #1e40af;
-    }
-
-    .upload-status {
-      margin: 12px 0 28px 0;
-      color: green;
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    #summary {
-      margin-top: 20px;
-      white-space: pre;
-      font-weight: bold;
-      text-align: left;
-      font-family: monospace;
-      font-size: 16px;
-      line-height: 1.6;
-    }
-
-    #passwordPage { display: block; }
-    #reconPage { display: none; }
-
-    #pwError {
-      color: red;
-      text-align: center;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-  </style>
-</head>
-
-<body>
-
-<div class="container">
-
-  <!-- PASSWORD PAGE -->
-  <div id="passwordPage">
-    <h2>Enter Password</h2>
-    <input id="pwInput" type="password" placeholder="Enter password"
-           style="width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #ccc;">
-    <button onclick="checkPassword()">Submit</button>
-    <div id="pwError"></div>
-  </div>
-
-  <!-- RECON PAGE -->
-  <div id="reconPage">
-
-    <h2>Reconciliation</h2>
-
-    <!-- BILLING FILE -->
-    <label class="upload-btn" for="billingFile">Upload Billing Charge Report</label>
-    <input type="file" id="billingFile" onchange="showFileName('billingFile','billingStatus')">
-    <div id="billingStatus" class="upload-status"></div>
-
-    <!-- RIS FILE -->
-    <label class="upload-btn" for="risFile">Upload Abbadox RIS Procedure Report</label>
-    <input type="file" id="risFile" onchange="showFileName('risFile','risStatus')">
-    <div id="risStatus" class="upload-status"></div>
-
-    <!-- RECONCILE BUTTON -->
-    <button id="runBtn">Reconcile</button>
-
-    <!-- SUMMARY OUTPUT -->
-    <div id="summary"></div>
-
-  </div>
-
-</div>
-
-<script>
-function checkPassword() {
-  const pw = document.getElementById("pwInput").value;
-  if (pw === "dmg1129") {
-    document.getElementById("passwordPage").style.display = "none";
-    document.getElementById("reconPage").style.display = "block";
+  if (typeof v === "number") {
+    d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
   } else {
-    document.getElementById("pwError").textContent = "Incorrect password";
+    d = new Date(v);
+  }
+
+  if (isNaN(d)) return v;
+
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+// =========================
+// Main Reconciliation
+// =========================
+
+async function runReconciliation() {
+  const summary = document.getElementById("summary");
+  summary.textContent = "Processing…";
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    // -------------------------
+    // Load Billing File
+    // -------------------------
+    const billingFile = document.getElementById("billingFile").files[0];
+    if (!billingFile) {
+      summary.textContent = "ERROR: Please upload the Billing file.";
+      return;
+    }
+
+    const billingData = await billingFile.arrayBuffer();
+    const billingWb = XLSX.read(billingData);
+    const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
+
+    const BILL_HEADER_ROW = 9;
+    const BILL_KEY_COL = 13;
+
+    const { header: billHeader, data: billData } =
+      extractRows(billingWs, BILL_HEADER_ROW);
+
+    const billDict = new Map();
+
+    for (let i = 0; i < billData.length; i++) {
+      const row = billData[i];
+      const key = normalizeAccession(row[BILL_KEY_COL]);
+      if (key.length > 0 && !billDict.has(key)) {
+        billDict.set(key, i);
+      }
+    }
+
+    // -------------------------
+    // Load RIS File
+    // -------------------------
+    const risFile = document.getElementById("risFile").files[0];
+    if (!risFile) {
+      summary.textContent = "ERROR: Please upload the RIS file.";
+      return;
+    }
+
+    const risDataBuf = await risFile.arrayBuffer();
+    const risWb = XLSX.read(risDataBuf);
+    const risWs = risWb.Sheets[risWb.SheetNames[0]];
+
+    const RIS_HEADER_ROW = 7;
+    const RIS_KEY_COL = 7;
+
+    const { header: risHeader, data: risData } =
+      extractRows(risWs, RIS_HEADER_ROW);
+
+    // ⭐ AUTO-DETECT RIS DATE OF SERVICE COLUMN
+    const dosIndex = risHeader.indexOf("Date of Service");
+
+    if (dosIndex === -1) {
+      summary.textContent = "ERROR: Could not find 'Date of Service' column in RIS file.";
+      return;
+    }
+
+    // -------------------------
+    // Reconciliation Logic
+    // -------------------------
+    const MATCH = [];
+    const NOMATCH = [];
+
+    let matchCount = 0;
+    let noMatchCount = 0;
+
+    const billColumnCount = billHeader.length;
+    const emptyBillRow = Array(billColumnCount).fill("");
+
+    for (let i = 0; i < risData.length; i++) {
+      const risRow = risData[i];
+      const accession = normalizeAccession(risRow[RIS_KEY_COL]);
+
+      if (!accession) continue;
+
+      // ⭐ FIX THE DATE OF SERVICE VALUE
+      const risDOS = fixDate(risRow[dosIndex]);
+
+      // ⭐ REPLACE THE VALUE IN THE ROW
+      const fixedRIS = [...risRow];
+      fixedRIS[dosIndex] = risDOS;
+
+      if (billDict.has(accession)) {
+        const billIndex = billDict.get(accession);
+        const billRow = billData[billIndex];
+
+        MATCH.push([
+          ...fixedRIS,
+          "MATCH",
+          ...billRow
+        ]);
+
+        matchCount++;
+      } else {
+        NOMATCH.push([
+          ...fixedRIS,
+          "NO MATCH",
+          ...emptyBillRow
+        ]);
+
+        noMatchCount++;
+      }
+    }
+
+    // -------------------------
+    // Build Output Workbook
+    // -------------------------
+    const outWb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        [...risHeader, "Status", ...billHeader],
+        ...MATCH
+      ]),
+      "MATCH"
+    );
+
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        [...risHeader, "Status", ...billHeader],
+        ...NOMATCH
+      ]),
+      "NO MATCH"
+    );
+
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        ["MATCH", matchCount],
+        ["NO MATCH", noMatchCount],
+        ["TOTAL ACCESSIONS", matchCount + noMatchCount]
+      ]),
+      "SUMMARY"
+    );
+
+    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
+
+    summary.textContent =
+      `MATCH: ${matchCount}\n` +
+      `NO MATCH: ${noMatchCount}\n` +
+      `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
+
+    // ⭐⭐⭐ MAKE COUNTS AVAILABLE TO index.html (REQUIRED FOR PERCENT DISPLAY)
+    window.matchCount = matchCount;
+    window.noMatchCount = noMatchCount;
+
+  } catch (err) {
+    summary.textContent = "ERROR: " + err.message;
   }
 }
 
-function showFileName(inputId, statusId) {
-  const fileInput = document.getElementById(inputId);
-  const statusDiv = document.getElementById(statusId);
-  if (fileInput.files.length > 0) {
-    statusDiv.textContent = "Uploaded: " + fileInput.files[0].name;
-  } else {
-    statusDiv.textContent = "";
-  }
-}
-
-document.getElementById("runBtn").addEventListener("click", async () => {
-  await runReconciliation();
-
-  const total = window.matchCount + window.noMatchCount;
-
-  const matchPct = ((window.matchCount / total) * 100).toFixed(2);
-  const noMatchPct = ((window.noMatchCount / total) * 100).toFixed(2);
-
-  document.getElementById("summary").textContent =
-    "Reconcile            Count       Percent\n" +
-    "MATCH                " + window.matchCount.toLocaleString() + "       " + matchPct + "%\n" +
-    "NO MATCH             " + window.noMatchCount.toLocaleString() + "       " + noMatchPct + "%\n" +
-    "TOTAL ACCESSION      " + total.toLocaleString() + "       100%";
-});
-</script>
-
-</body>
-</html> 
