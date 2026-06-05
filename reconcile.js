@@ -196,7 +196,7 @@ async function runReconciliation() {
       `NO MATCH: ${noMatchCount}\n` +
       `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
 
-    // ⭐⭐⭐ MAKE COUNTS AVAILABLE TO index.html (REQUIRED FOR PERCENT DISPLAY)
+    // ⭐⭐⭐ REQUIRED FOR TABLE + PERCENT DISPLAY IN index.html
     window.matchCount = matchCount;
     window.noMatchCount = noMatchCount;
 
