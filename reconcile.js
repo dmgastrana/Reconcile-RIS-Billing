@@ -101,7 +101,7 @@ async function runReconciliation() {
     const { header: risHeader, data: risData } =
       extractRows(risWs, RIS_HEADER_ROW);
 
-    // ⭐ AUTO-DETECT THE CORRECT DATE OF SERVICE COLUMN
+    // ⭐ AUTO-DETECT RIS DATE OF SERVICE COLUMN
     const dosIndex = risHeader.indexOf("Date of Service");
 
     if (dosIndex === -1) {
@@ -127,10 +127,10 @@ async function runReconciliation() {
 
       if (!accession) continue;
 
-      // ⭐ FIX THE CORRECT COLUMN (auto-detected)
+      // ⭐ FIX THE DATE OF SERVICE VALUE
       const risDOS = fixDate(risRow[dosIndex]);
 
-      // Replace the original value
+      // ⭐ REPLACE THE VALUE IN THE ROW (THIS IS THE FIX)
       const fixedRIS = [...risRow];
       fixedRIS[dosIndex] = risDOS;
 
