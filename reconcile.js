@@ -24,24 +24,22 @@ function extractRows(ws, headerRowIndex) {
   return { header, data };
 }
 
-// =========================
-// Convert ANY Excel date to readable string
-// =========================
-
+// Convert Excel serial or text date → "MM/DD/YYYY"
 function fixDate(v) {
-  // Excel serial number
+  let d;
+
   if (typeof v === "number") {
-    const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
-    return d.toLocaleDateString("en-US");
+    d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+  } else {
+    d = new Date(v);
   }
 
-  // Text date
-  const d = new Date(v);
-  if (!isNaN(d)) {
-    return d.toLocaleDateString("en-US");
-  }
+  if (isNaN(d)) return v;
 
-  return v; // Not a date
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${mm}/${dd}/${yyyy}`;
 }
 
 // =========================
@@ -103,6 +101,14 @@ async function runReconciliation() {
     const { header: risHeader, data: risData } =
       extractRows(risWs, RIS_HEADER_ROW);
 
+    // ⭐ AUTO-DETECT THE CORRECT DATE OF SERVICE COLUMN
+    const dosIndex = risHeader.indexOf("Date of Service");
+
+    if (dosIndex === -1) {
+      summary.textContent = "ERROR: Could not find 'Date of Service' column in RIS file.";
+      return;
+    }
+
     // -------------------------
     // Reconciliation Logic
     // -------------------------
@@ -121,44 +127,27 @@ async function runReconciliation() {
 
       if (!accession) continue;
 
-      // Fix RIS dates
-      const risDOS = fixDate(risRow[4]);
-      const risDOB = fixDate(risRow[10]);
+      // ⭐ FIX THE CORRECT COLUMN (auto-detected)
+      const risDOS = fixDate(risRow[dosIndex]);
+
+      // Replace the original value
+      const fixedRIS = [...risRow];
+      fixedRIS[dosIndex] = risDOS;
 
       if (billDict.has(accession)) {
         const billIndex = billDict.get(accession);
         const billRow = billData[billIndex];
 
-        // Fix Billing dates
-        const billDOS = fixDate(billRow[2]);
-        const billPost = fixDate(billRow[3]);
-        const billMaxPay = fixDate(billRow[8]);
-        const billMaxPost = fixDate(billRow[9]);
-
         MATCH.push([
-          ...risRow.slice(0, 4),
-          risDOS,
-          ...risRow.slice(5, 10),
-          risDOB,
-          ...risRow.slice(11),
+          ...fixedRIS,
           "MATCH",
-          ...billRow.slice(0, 2),
-          billDOS,
-          billPost,
-          ...billRow.slice(4, 8),
-          billMaxPay,
-          billMaxPost,
-          ...billRow.slice(10)
+          ...billRow
         ]);
 
         matchCount++;
       } else {
         NOMATCH.push([
-          ...risRow.slice(0, 4),
-          risDOS,
-          ...risRow.slice(5, 10),
-          risDOB,
-          ...risRow.slice(11),
+          ...fixedRIS,
           "NO MATCH",
           ...emptyBillRow
         ]);
@@ -172,21 +161,24 @@ async function runReconciliation() {
     // -------------------------
     const outWb = XLSX.utils.book_new();
 
-    // MATCH sheet
-    const matchSheet = XLSX.utils.aoa_to_sheet([
-      [...risHeader, "Status", ...billHeader],
-      ...MATCH
-    ]);
-    XLSX.utils.book_append_sheet(outWb, matchSheet, "MATCH");
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        [...risHeader, "Status", ...billHeader],
+        ...MATCH
+      ]),
+      "MATCH"
+    );
 
-    // NO MATCH sheet
-    const noMatchSheet = XLSX.utils.aoa_to_sheet([
-      [...risHeader, "Status", ...billHeader],
-      ...NOMATCH
-    ]);
-    XLSX.utils.book_append_sheet(outWb, noMatchSheet, "NO MATCH");
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        [...risHeader, "Status", ...billHeader],
+        ...NOMATCH
+      ]),
+      "NO MATCH"
+    );
 
-    // SUMMARY sheet
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
