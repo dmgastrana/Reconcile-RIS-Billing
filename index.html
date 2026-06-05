@@ -80,7 +80,6 @@
 
     #summary {
       margin-top: 20px;
-      white-space: pre;
       font-weight: bold;
       text-align: left;
       font-family: monospace;
@@ -167,11 +166,33 @@ document.getElementById("runBtn").addEventListener("click", async () => {
   const matchPct = ((window.matchCount / total) * 100).toFixed(2);
   const noMatchPct = ((window.noMatchCount / total) * 100).toFixed(2);
 
-  document.getElementById("summary").textContent =
-    "Reconcile            Count       Percent\n" +
-    "MATCH                " + window.matchCount.toLocaleString() + "       " + matchPct + "%\n" +
-    "NO MATCH             " + window.noMatchCount.toLocaleString() + "       " + noMatchPct + "%\n" +
-    "TOTAL ACCESSION      " + total.toLocaleString() + "       100%";
+  document.getElementById("summary").innerHTML = `
+    <table style="width:100%; border-collapse:collapse; font-family:monospace; font-size:16px;">
+      <tr style="font-weight:bold; border-bottom:2px solid #000;">
+        <td>Reconcile</td>
+        <td style="text-align:right;">Count</td>
+        <td style="text-align:right;">Percent</td>
+      </tr>
+
+      <tr>
+        <td>MATCH</td>
+        <td style="text-align:right;">${window.matchCount.toLocaleString()}</td>
+        <td style="text-align:right;">${matchPct}%</td>
+      </tr>
+
+      <tr style="color:red; font-weight:bold;">
+        <td>NO MATCH</td>
+        <td style="text-align:right;">${window.noMatchCount.toLocaleString()}</td>
+        <td style="text-align:right;">${noMatchPct}%</td>
+      </tr>
+
+      <tr style="font-weight:bold; border-top:2px solid #000;">
+        <td>TOTAL ACCESSION</td>
+        <td style="text-align:right;">${total.toLocaleString()}</td>
+        <td style="text-align:right;">100%</td>
+      </tr>
+    </table>
+  `;
 });
 </script>
 
