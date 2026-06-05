@@ -156,8 +156,24 @@ function showFileName(inputId, statusId) {
   }
 }
 
-// ⭐ THIS LINE WAS MISSING — NOW THE BUTTON ACTUALLY RUNS THE JS
-document.getElementById("runBtn").addEventListener("click", runReconciliation);
+// ⭐ CONNECT BUTTON TO RECONCILIATION
+document.getElementById("runBtn").addEventListener("click", async () => {
+  await runReconciliation();
+
+  // ⭐ AFTER runReconciliation() finishes, these values exist globally:
+  // matchCount, noMatchCount
+
+  const total = matchCount + noMatchCount;
+
+  const matchPct = ((matchCount / total) * 100).toFixed(2);
+  const noMatchPct = ((noMatchCount / total) * 100).toFixed(2);
+
+  document.getElementById("summary").textContent =
+    "Reconcile\t\tCount\tPercent\n" +
+    "MATCH\t\t" + matchCount.toLocaleString() + "\t" + matchPct + "%\n" +
+    "NO MATCH\t" + noMatchCount.toLocaleString() + "\t" + noMatchPct + "%\n" +
+    "TOTAL ACCESSION\t" + total.toLocaleString() + "\t100%";
+});
 </script>
 
 </body>
