@@ -198,25 +198,8 @@ async function runReconciliation() {
       "SUMMARY"
     );
 
-    // -------------------------
-    // ⭐ CREATE CLICKABLE LINK INSTEAD OF AUTO-DOWNLOAD
-    // -------------------------
-    const wbout = XLSX.write(outWb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([wbout], { type: "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
+    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
 
-    // Append link BELOW the table
-    document.getElementById("summary").innerHTML += `
-      <br>
-      <a href="${url}" download="Reconciliation_Output.xlsx"
-         style="font-size:16px; color:#2563eb; font-weight:bold; text-decoration:none;">
-         ➜ Open Excel Output
-      </a>
-    `;
-
-    // -------------------------
-    // Update text summary (not used visually anymore)
-    // -------------------------
     summary.textContent =
       `MATCH: ${matchCount}\n` +
       `NO MATCH: ${noMatchCount}\n` +
@@ -230,4 +213,3 @@ async function runReconciliation() {
     summary.textContent = "ERROR: " + err.message;
   }
 }
-
