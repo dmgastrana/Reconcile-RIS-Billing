@@ -1,3 +1,5 @@
+
+
 // =========================
 // Utility Functions
 // =========================
@@ -208,8 +210,3 @@ async function runReconciliation() {
     // ⭐ REQUIRED FOR WEBPAGE TABLE DISPLAY
     window.matchCount = matchCount;
     window.noMatchCount = noMatchCount;
-
-  } catch (err) {
-    summary.textContent = "ERROR: " + err.message;
-  }
-}
