@@ -1,4 +1,3 @@
-
 // =========================
 // Utility Functions
 // =========================
@@ -67,21 +66,14 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
-    // Billing header is on row 10 (index 9)
     const BILL_HEADER_ROW = 9;
+    const BILL_KEY_COL = 13;   // ← unchanged
 
     const { header: billHeader, data: billData } =
       extractRows(billingWs, BILL_HEADER_ROW);
 
-    // ⭐ Correct billing key column → "Order Num"
-    const BILL_KEY_COL = billHeader.indexOf("Order Num");
-    if (BILL_KEY_COL === -1) {
-      summary.textContent = "ERROR: Billing file missing 'Order Num' column.";
-      return;
-    }
-
-    // Build dictionary for fast lookup
     const billDict = new Map();
+
     for (let i = 0; i < billData.length; i++) {
       const row = billData[i];
       const key = normalizeAccession(row[BILL_KEY_COL]);
@@ -104,19 +96,19 @@ async function runReconciliation() {
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
     const RIS_HEADER_ROW = 7;
-    const RIS_KEY_COL = 7; // Accession Number
+    const RIS_KEY_COL = 7;
 
     const { header: risHeader, data: risData } =
       extractRows(risWs, RIS_HEADER_ROW);
 
-    // Auto-detect RIS DOS column
+    // ⭐ AUTO-DETECT RIS DATE OF SERVICE COLUMN
     const dosIndex = risHeader.indexOf("Date of Service");
     if (dosIndex === -1) {
       summary.textContent = "ERROR: Could not find 'Date of Service' column in RIS file.";
       return;
     }
 
-    // ⭐ Auto-detect DOB column
+    // ⭐ AUTO-DETECT PATIENT DOB COLUMN (NEW)
     const dobIndex = risHeader.indexOf("Patient DOB");
 
     // -------------------------
@@ -137,12 +129,14 @@ async function runReconciliation() {
 
       if (!accession) continue;
 
-      // Fix DOS
+      // ⭐ FIX THE DATE OF SERVICE VALUE
       const risDOS = fixDate(risRow[dosIndex]);
+
+      // ⭐ REPLACE THE VALUE IN THE ROW
       const fixedRIS = [...risRow];
       fixedRIS[dosIndex] = risDOS;
 
-      // ⭐ Fix DOB if present
+      // ⭐ FIX DOB IF PRESENT (NEW)
       if (dobIndex !== -1) {
         fixedRIS[dobIndex] = fixDate(risRow[dobIndex]);
       }
@@ -151,7 +145,6 @@ async function runReconciliation() {
         const billIndex = billDict.get(accession);
         const billRow = billData[billIndex];
 
-        // Append billing data
         MATCH.push([
           ...fixedRIS,
           "MATCH",
@@ -171,55 +164,53 @@ async function runReconciliation() {
     }
 
     // -------------------------
-    // Build Output Workbook (Correct Sheet Order)
-// -------------------------
-const outWb = XLSX.utils.book_new();
+    // Build Output Workbook
+    // -------------------------
+    const outWb = XLSX.utils.book_new();
 
-// 1️⃣ SUMMARY FIRST
-const total = matchCount + noMatchCount;
-const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
-const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        [...risHeader, "Reconcile", ...billHeader],
+        ...MATCH
+      ]),
+      "MATCH"
+    );
 
-XLSX.utils.book_append_sheet(
-  outWb,
-  XLSX.utils.aoa_to_sheet([
-    ["Reconcile", "Count", "Percent"],
-    ["MATCH", matchCount, matchPct],
-    ["NO MATCH", noMatchCount, noMatchPct],
-    ["TOTAL ACCESSION", total, "100%"]
-  ]),
-  "SUMMARY"
-);
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        [...risHeader, "Reconcile", ...billHeader],
+        ...NOMATCH
+      ]),
+      "NO MATCH"
+    );
 
-// 2️⃣ MATCH SECOND
-XLSX.utils.book_append_sheet(
-  outWb,
-  XLSX.utils.aoa_to_sheet([
-    [...risHeader, "Reconcile", ...billHeader],
-    ...MATCH
-  ]),
-  "MATCH"
-);
+    // SUMMARY SHEET
+    const total = matchCount + noMatchCount;
+    const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
+    const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
 
-// 3️⃣ NO MATCH THIRD
-XLSX.utils.book_append_sheet(
-  outWb,
-  XLSX.utils.aoa_to_sheet([
-    [...risHeader, "Reconcile", ...billHeader],
-    ...NOMATCH
-  ]),
-  "NO MATCH"
-);
+    XLSX.utils.book_append_sheet(
+      outWb,
+      XLSX.utils.aoa_to_sheet([
+        ["Reconcile", "Count", "Percent"],
+        ["MATCH", matchCount, matchPct],
+        ["NO MATCH", noMatchCount, noMatchPct],
+        ["TOTAL ACCESSION", total, "100%"]
+      ]),
+      "SUMMARY"
+    );
 
-XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
+    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
 
-summary.textContent =
-  `MATCH: ${matchCount}\n` +
-  `NO MATCH: ${noMatchCount}\n` +
-  `TOTAL ACCESSIONS: ${total}`;
+    summary.textContent =
+      `MATCH: ${matchCount}\n` +
+      `NO MATCH: ${noMatchCount}\n` +
+      `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
 
-window.matchCount = matchCount;
-window.noMatchCount = noMatchCount;
+    window.matchCount = matchCount;
+    window.noMatchCount = noMatchCount;
 
   } catch (err) {
     summary.textContent = "ERROR: " + err.message;
