@@ -67,18 +67,15 @@ async function runReconciliation() {
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
     const BILL_HEADER_ROW = 9;
-    const BILL_KEY_COL = 13;  // your original logic
+    const BILL_KEY_COL = 13;
 
     const { header: billHeader, data: billData } =
       extractRows(billingWs, BILL_HEADER_ROW);
 
-    // ⭐ CLEAN EMPTY BILLING ROWS (fixes missing appended data)
-    const cleanBillData = billData.filter(r => r.some(v => v !== ""));
-
     const billDict = new Map();
 
-    for (let i = 0; i < cleanBillData.length; i++) {
-      const row = cleanBillData[i];
+    for (let i = 0; i < billData.length; i++) {
+      const row = billData[i];
       const key = normalizeAccession(row[BILL_KEY_COL]);
       if (key.length > 0 && !billDict.has(key)) {
         billDict.set(key, i);
@@ -104,10 +101,13 @@ async function runReconciliation() {
     const { header: risHeader, data: risData } =
       extractRows(risWs, RIS_HEADER_ROW);
 
+    // ⭐ AUTO-DETECT RIS DATE OF SERVICE COLUMN
     const dosIndex = risHeader.indexOf("Date of Service");
 
-    // ⭐ AUTO-DETECT DOB COLUMN
-    const dobIndex = risHeader.indexOf("Patient DOB");
+    if (dosIndex === -1) {
+      summary.textContent = "ERROR: Could not find 'Date of Service' column in RIS file.";
+      return;
+    }
 
     // -------------------------
     // Reconciliation Logic
@@ -127,19 +127,16 @@ async function runReconciliation() {
 
       if (!accession) continue;
 
+      // ⭐ FIX THE DATE OF SERVICE VALUE
+      const risDOS = fixDate(risRow[dosIndex]);
+
+      // ⭐ REPLACE THE VALUE IN THE ROW
       const fixedRIS = [...risRow];
-
-      // ⭐ FIX DOS
-      fixedRIS[dosIndex] = fixDate(risRow[dosIndex]);
-
-      // ⭐ FIX DOB
-      if (dobIndex !== -1) {
-        fixedRIS[dobIndex] = fixDate(risRow[dobIndex]);
-      }
+      fixedRIS[dosIndex] = risDOS;
 
       if (billDict.has(accession)) {
         const billIndex = billDict.get(accession);
-        const billRow = cleanBillData[billIndex] || emptyBillRow;
+        const billRow = billData[billIndex];
 
         MATCH.push([
           ...fixedRIS,
@@ -164,6 +161,7 @@ async function runReconciliation() {
     // -------------------------
     const outWb = XLSX.utils.book_new();
 
+    // ⭐ CHANGE "Status" → "Reconcile"
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
@@ -182,6 +180,9 @@ async function runReconciliation() {
       "NO MATCH"
     );
 
+    // -------------------------
+    // ⭐ UPDATED SUMMARY SHEET (3 columns + percentages)
+    // -------------------------
     const total = matchCount + noMatchCount;
     const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
     const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
@@ -203,6 +204,10 @@ async function runReconciliation() {
       `MATCH: ${matchCount}\n` +
       `NO MATCH: ${noMatchCount}\n` +
       `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
+
+    // ⭐ REQUIRED FOR WEBPAGE TABLE DISPLAY
+    window.matchCount = matchCount;
+    window.noMatchCount = noMatchCount;
 
   } catch (err) {
     summary.textContent = "ERROR: " + err.message;
