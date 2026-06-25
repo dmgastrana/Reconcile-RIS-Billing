@@ -1,3 +1,4 @@
+
 // =========================
 // Utility Functions
 // =========================
@@ -66,20 +67,21 @@ async function runReconciliation() {
     const billingWb = XLSX.read(billingData);
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
+    // Billing header is on row 10 (index 9)
     const BILL_HEADER_ROW = 9;
 
     const { header: billHeader, data: billData } =
       extractRows(billingWs, BILL_HEADER_ROW);
 
-    // ⭐ FIXED: detect "Order Num" instead of hardcoding column 13
+    // ⭐ Correct billing key column → "Order Num"
     const BILL_KEY_COL = billHeader.indexOf("Order Num");
     if (BILL_KEY_COL === -1) {
       summary.textContent = "ERROR: Billing file missing 'Order Num' column.";
       return;
     }
 
+    // Build dictionary for fast lookup
     const billDict = new Map();
-
     for (let i = 0; i < billData.length; i++) {
       const row = billData[i];
       const key = normalizeAccession(row[BILL_KEY_COL]);
@@ -102,13 +104,17 @@ async function runReconciliation() {
     const risWs = risWb.Sheets[risWb.SheetNames[0]];
 
     const RIS_HEADER_ROW = 7;
-    const RIS_KEY_COL = 7;
+    const RIS_KEY_COL = 7; // Accession Number
 
     const { header: risHeader, data: risData } =
       extractRows(risWs, RIS_HEADER_ROW);
 
+    // Auto-detect RIS DOS column
     const dosIndex = risHeader.indexOf("Date of Service");
-    const dobIndex = risHeader.indexOf("Patient DOB");
+    if (dosIndex === -1) {
+      summary.textContent = "ERROR: Could not find 'Date of Service' column in RIS file.";
+      return;
+    }
 
     // -------------------------
     // Reconciliation Logic
@@ -128,20 +134,16 @@ async function runReconciliation() {
 
       if (!accession) continue;
 
+      // Fix DOS
+      const risDOS = fixDate(risRow[dosIndex]);
       const fixedRIS = [...risRow];
-
-      // ⭐ FIX DOS
-      fixedRIS[dosIndex] = fixDate(risRow[dosIndex]);
-
-      // ⭐ FIX DOB
-      if (dobIndex !== -1) {
-        fixedRIS[dobIndex] = fixDate(risRow[dobIndex]);
-      }
+      fixedRIS[dosIndex] = risDOS;
 
       if (billDict.has(accession)) {
         const billIndex = billDict.get(accession);
         const billRow = billData[billIndex];
 
+        // ⭐ Append billing data correctly
         MATCH.push([
           ...fixedRIS,
           "MATCH",
@@ -165,6 +167,7 @@ async function runReconciliation() {
     // -------------------------
     const outWb = XLSX.utils.book_new();
 
+    // MATCH sheet
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
@@ -174,6 +177,7 @@ async function runReconciliation() {
       "MATCH"
     );
 
+    // NO MATCH sheet
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
@@ -183,6 +187,7 @@ async function runReconciliation() {
       "NO MATCH"
     );
 
+    // SUMMARY sheet
     const total = matchCount + noMatchCount;
     const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
     const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
@@ -203,7 +208,10 @@ async function runReconciliation() {
     summary.textContent =
       `MATCH: ${matchCount}\n` +
       `NO MATCH: ${noMatchCount}\n` +
-      `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
+      `TOTAL ACCESSIONS: ${total}`;
+
+    window.matchCount = matchCount;
+    window.noMatchCount = noMatchCount;
 
   } catch (err) {
     summary.textContent = "ERROR: " + err.message;
