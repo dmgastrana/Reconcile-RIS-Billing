@@ -67,10 +67,16 @@ async function runReconciliation() {
     const billingWs = billingWb.Sheets[billingWb.SheetNames[0]];
 
     const BILL_HEADER_ROW = 9;
-    const BILL_KEY_COL = 13;
 
     const { header: billHeader, data: billData } =
       extractRows(billingWs, BILL_HEADER_ROW);
+
+    // ⭐ FIXED: detect "Order Num" instead of hardcoding column 13
+    const BILL_KEY_COL = billHeader.indexOf("Order Num");
+    if (BILL_KEY_COL === -1) {
+      summary.textContent = "ERROR: Billing file missing 'Order Num' column.";
+      return;
+    }
 
     const billDict = new Map();
 
@@ -101,13 +107,8 @@ async function runReconciliation() {
     const { header: risHeader, data: risData } =
       extractRows(risWs, RIS_HEADER_ROW);
 
-    // ⭐ AUTO-DETECT RIS DATE OF SERVICE COLUMN
     const dosIndex = risHeader.indexOf("Date of Service");
-
-    if (dosIndex === -1) {
-      summary.textContent = "ERROR: Could not find 'Date of Service' column in RIS file.";
-      return;
-    }
+    const dobIndex = risHeader.indexOf("Patient DOB");
 
     // -------------------------
     // Reconciliation Logic
@@ -127,12 +128,15 @@ async function runReconciliation() {
 
       if (!accession) continue;
 
-      // ⭐ FIX THE DATE OF SERVICE VALUE
-      const risDOS = fixDate(risRow[dosIndex]);
-
-      // ⭐ REPLACE THE VALUE IN THE ROW
       const fixedRIS = [...risRow];
-      fixedRIS[dosIndex] = risDOS;
+
+      // ⭐ FIX DOS
+      fixedRIS[dosIndex] = fixDate(risRow[dosIndex]);
+
+      // ⭐ FIX DOB
+      if (dobIndex !== -1) {
+        fixedRIS[dobIndex] = fixDate(risRow[dobIndex]);
+      }
 
       if (billDict.has(accession)) {
         const billIndex = billDict.get(accession);
@@ -161,7 +165,6 @@ async function runReconciliation() {
     // -------------------------
     const outWb = XLSX.utils.book_new();
 
-    // ⭐ CHANGE "Status" → "Reconcile"
     XLSX.utils.book_append_sheet(
       outWb,
       XLSX.utils.aoa_to_sheet([
@@ -180,9 +183,6 @@ async function runReconciliation() {
       "NO MATCH"
     );
 
-    // -------------------------
-    // ⭐ UPDATED SUMMARY SHEET (3 columns + percentages)
-    // -------------------------
     const total = matchCount + noMatchCount;
     const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
     const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
@@ -205,6 +205,7 @@ async function runReconciliation() {
       `NO MATCH: ${noMatchCount}\n` +
       `TOTAL ACCESSIONS: ${matchCount + noMatchCount}`;
 
-    // ⭐ REQUIRED FOR WEBPAGE TABLE DISPLAY
-    window.matchCount = matchCount;
-    window.noMatchCount = noMatchCount;
+  } catch (err) {
+    summary.textContent = "ERROR: " + err.message;
+  }
+}
