@@ -116,6 +116,9 @@ async function runReconciliation() {
       return;
     }
 
+    // ⭐ Auto-detect DOB column
+    const dobIndex = risHeader.indexOf("Patient DOB");
+
     // -------------------------
     // Reconciliation Logic
     // -------------------------
@@ -139,11 +142,16 @@ async function runReconciliation() {
       const fixedRIS = [...risRow];
       fixedRIS[dosIndex] = risDOS;
 
+      // ⭐ Fix DOB if present
+      if (dobIndex !== -1) {
+        fixedRIS[dobIndex] = fixDate(risRow[dobIndex]);
+      }
+
       if (billDict.has(accession)) {
         const billIndex = billDict.get(accession);
         const billRow = billData[billIndex];
 
-        // ⭐ Append billing data correctly
+        // Append billing data
         MATCH.push([
           ...fixedRIS,
           "MATCH",
@@ -163,55 +171,55 @@ async function runReconciliation() {
     }
 
     // -------------------------
-    // Build Output Workbook
-    // -------------------------
-    const outWb = XLSX.utils.book_new();
+    // Build Output Workbook (Correct Sheet Order)
+// -------------------------
+const outWb = XLSX.utils.book_new();
 
-    // MATCH sheet
-    XLSX.utils.book_append_sheet(
-      outWb,
-      XLSX.utils.aoa_to_sheet([
-        [...risHeader, "Reconcile", ...billHeader],
-        ...MATCH
-      ]),
-      "MATCH"
-    );
+// 1️⃣ SUMMARY FIRST
+const total = matchCount + noMatchCount;
+const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
+const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
 
-    // NO MATCH sheet
-    XLSX.utils.book_append_sheet(
-      outWb,
-      XLSX.utils.aoa_to_sheet([
-        [...risHeader, "Reconcile", ...billHeader],
-        ...NOMATCH
-      ]),
-      "NO MATCH"
-    );
+XLSX.utils.book_append_sheet(
+  outWb,
+  XLSX.utils.aoa_to_sheet([
+    ["Reconcile", "Count", "Percent"],
+    ["MATCH", matchCount, matchPct],
+    ["NO MATCH", noMatchCount, noMatchPct],
+    ["TOTAL ACCESSION", total, "100%"]
+  ]),
+  "SUMMARY"
+);
 
-    // SUMMARY sheet
-    const total = matchCount + noMatchCount;
-    const matchPct = ((matchCount / total) * 100).toFixed(2) + "%";
-    const noMatchPct = ((noMatchCount / total) * 100).toFixed(2) + "%";
+// 2️⃣ MATCH SECOND
+XLSX.utils.book_append_sheet(
+  outWb,
+  XLSX.utils.aoa_to_sheet([
+    [...risHeader, "Reconcile", ...billHeader],
+    ...MATCH
+  ]),
+  "MATCH"
+);
 
-    XLSX.utils.book_append_sheet(
-      outWb,
-      XLSX.utils.aoa_to_sheet([
-        ["Reconcile", "Count", "Percent"],
-        ["MATCH", matchCount, matchPct],
-        ["NO MATCH", noMatchCount, noMatchPct],
-        ["TOTAL ACCESSION", total, "100%"]
-      ]),
-      "SUMMARY"
-    );
+// 3️⃣ NO MATCH THIRD
+XLSX.utils.book_append_sheet(
+  outWb,
+  XLSX.utils.aoa_to_sheet([
+    [...risHeader, "Reconcile", ...billHeader],
+    ...NOMATCH
+  ]),
+  "NO MATCH"
+);
 
-    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
+XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
 
-    summary.textContent =
-      `MATCH: ${matchCount}\n` +
-      `NO MATCH: ${noMatchCount}\n` +
-      `TOTAL ACCESSIONS: ${total}`;
+summary.textContent =
+  `MATCH: ${matchCount}\n` +
+  `NO MATCH: ${noMatchCount}\n` +
+  `TOTAL ACCESSIONS: ${total}`;
 
-    window.matchCount = matchCount;
-    window.noMatchCount = noMatchCount;
+window.matchCount = matchCount;
+window.noMatchCount = noMatchCount;
 
   } catch (err) {
     summary.textContent = "ERROR: " + err.message;
