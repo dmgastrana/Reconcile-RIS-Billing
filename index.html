@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -80,9 +81,12 @@
 
     #summary {
       margin-top: 20px;
-      white-space: pre-line;
+      white-space: pre;
       font-weight: bold;
-      text-align: center;
+      text-align: left;
+      font-family: monospace;
+      font-size: 16px;
+      line-height: 1.6;
     }
 
     #passwordPage { display: block; }
@@ -156,8 +160,20 @@ function showFileName(inputId, statusId) {
   }
 }
 
-// ⭐ THIS LINE WAS MISSING — NOW THE BUTTON ACTUALLY RUNS THE JS
-document.getElementById("runBtn").addEventListener("click", runReconciliation);
+document.getElementById("runBtn").addEventListener("click", async () => {
+  await runReconciliation();
+
+  const total = window.matchCount + window.noMatchCount;
+
+  const matchPct = ((window.matchCount / total) * 100).toFixed(2);
+  const noMatchPct = ((window.noMatchCount / total) * 100).toFixed(2);
+
+  document.getElementById("summary").textContent =
+    "Reconcile            Count       Percent\n" +
+    "MATCH                " + window.matchCount.toLocaleString() + "       " + matchPct + "%\n" +
+    "NO MATCH             " + window.noMatchCount.toLocaleString() + "       " + noMatchPct + "%\n" +
+    "TOTAL ACCESSION      " + total.toLocaleString() + "       100%";
+});
 </script>
 
 </body>
