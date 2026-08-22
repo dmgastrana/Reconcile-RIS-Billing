@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,7 +80,7 @@
 
     #summary {
       margin-top: 20px;
-      white-space: pre;
+      white-space: pre-line;
       font-weight: bold;
       text-align: left;
       font-family: monospace;
@@ -142,7 +141,7 @@
 <script>
 function checkPassword() {
   const pw = document.getElementById("pwInput").value;
-  if (pw === "dmg1129") {
+  if (pw === "none100") {
     document.getElementById("passwordPage").style.display = "none";
     document.getElementById("reconPage").style.display = "block";
   } else {
@@ -161,18 +160,12 @@ function showFileName(inputId, statusId) {
 }
 
 document.getElementById("runBtn").addEventListener("click", async () => {
+  document.getElementById("summary").textContent = "Processing…";
+
   await runReconciliation();
 
-  const total = window.matchCount + window.noMatchCount;
-
-  const matchPct = ((window.matchCount / total) * 100).toFixed(2);
-  const noMatchPct = ((window.noMatchCount / total) * 100).toFixed(2);
-
   document.getElementById("summary").textContent =
-    "Reconcile            Count       Percent\n" +
-    "MATCH                " + window.matchCount.toLocaleString() + "       " + matchPct + "%\n" +
-    "NO MATCH             " + window.noMatchCount.toLocaleString() + "       " + noMatchPct + "%\n" +
-    "TOTAL ACCESSION      " + total.toLocaleString() + "       100%";
+    "Reconciliation complete.\nOutput file downloaded.";
 });
 </script>
 
