@@ -71,10 +71,7 @@ function fixDate(v) {
 // PASS 1 — Order Num match
 // =========================
 
-function firstPass_OrderNum(risAOA, billAOA, colMap) {
-  let matchCount = 0;
-  let noMatchCount = 0;
-
+function firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol) {
   const dictOrder = {};
   const orderCol = colMap["Order Num"];
 
@@ -95,32 +92,26 @@ function firstPass_OrderNum(risAOA, billAOA, colMap) {
       const bestRow = dictOrder[accession][0];
       const billRow = billAOA[bestRow];
 
-      risAOA[r][21] = "MATCH";
+      risAOA[r][startReconCol] = "MATCH";
 
-      risAOA[r][22] = billRow[colMap["Patient"]];
-      risAOA[r][23] = billRow[colMap["Location"]];
-      risAOA[r][24] = fixDate(billRow[colMap["DOS"]]);
-      risAOA[r][25] = fixDate(billRow[colMap["Charge Post"]]);
-      risAOA[r][26] = billRow[colMap["Procedure"]];
-      risAOA[r][27] = billRow[colMap["ASA Code"]];
-      risAOA[r][28] = billRow[colMap["Charge Amt"]];
-      risAOA[r][29] = billRow[colMap["Total Payment"]];
-      risAOA[r][30] = fixDate(billRow[colMap["Max Pay Date"]]);
-      risAOA[r][31] = fixDate(billRow[colMap["Max Pay Post"]]);
-      risAOA[r][32] = billRow[colMap["Primary Ins"]];
-      risAOA[r][33] = billRow[colMap["Secondary Ins"]];
-      risAOA[r][34] = billRow[colMap["Tertiary Ins"]];
-      risAOA[r][35] = billRow[colMap["Order Num"]];
-
-      matchCount++;
+      risAOA[r][startReconCol + 1]  = billRow[colMap["Patient"]];
+      risAOA[r][startReconCol + 2]  = billRow[colMap["Location"]];
+      risAOA[r][startReconCol + 3]  = fixDate(billRow[colMap["DOS"]]);
+      risAOA[r][startReconCol + 4]  = fixDate(billRow[colMap["Charge Post"]]);
+      risAOA[r][startReconCol + 5]  = billRow[colMap["Procedure"]];
+      risAOA[r][startReconCol + 6]  = billRow[colMap["ASA Code"]];
+      risAOA[r][startReconCol + 7]  = billRow[colMap["Charge Amt"]];
+      risAOA[r][startReconCol + 8]  = billRow[colMap["Total Payment"]];
+      risAOA[r][startReconCol + 9]  = fixDate(billRow[colMap["Max Pay Date"]]);
+      risAOA[r][startReconCol + 10] = fixDate(billRow[colMap["Max Pay Post"]]);
+      risAOA[r][startReconCol + 11] = billRow[colMap["Primary Ins"]];
+      risAOA[r][startReconCol + 12] = billRow[colMap["Secondary Ins"]];
+      risAOA[r][startReconCol + 13] = billRow[colMap["Tertiary Ins"]];
+      risAOA[r][startReconCol + 14] = billRow[colMap["Order Num"]];
     } else {
-      risAOA[r][21] = "NO MATCH";
-      noMatchCount++;
+      risAOA[r][startReconCol] = "NO MATCH";
     }
   }
-
-  window.matchCount = matchCount;
-  window.noMatchCount = noMatchCount;
 
   return risAOA;
 }
@@ -129,7 +120,7 @@ function firstPass_OrderNum(risAOA, billAOA, colMap) {
 // PASS 2 — Name + CPT match
 // =========================
 
-function secondPass_NameCPT(risAOA, billAOA, colMap) {
+function secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol) {
   const dictNameCPT = {};
   const patientCol = colMap["Patient"];
   const procCol = colMap["Procedure"];
@@ -155,14 +146,14 @@ function secondPass_NameCPT(risAOA, billAOA, colMap) {
     }
 
     for (let r = 8; r < risAOA.length; r++) {
-      const reconcile = String(risAOA[r][21] || "").trim().toUpperCase();
+      const reconcile = String(risAOA[r][startReconCol] || "").trim().toUpperCase();
       if (reconcile === "MATCH") continue;
 
       const accession = normalizeAccession(risAOA[r][7]);
       if (accession) continue;
 
-      const risName = normalizeName(risAOA[r][11]); // new Patient Name (L)
-      const cpt = cleanCPT(risAOA[r][19]); // new CPT Code (T)
+      const risName = normalizeName(risAOA[r][11]); // Patient Name (L)
+      const cpt = cleanCPT(risAOA[r][19]); // CPT Code (T)
 
       if (risName && cpt) {
         const key = risName + "|" + cpt;
@@ -171,22 +162,22 @@ function secondPass_NameCPT(risAOA, billAOA, colMap) {
           const bestRow = dictNameCPT[key];
           const billRow = billAOA[bestRow];
 
-          risAOA[r][21] = "MATCH";
+          risAOA[r][startReconCol] = "MATCH";
 
-          risAOA[r][22] = billRow[colMap["Patient"]];
-          risAOA[r][23] = billRow[colMap["Location"]];
-          risAOA[r][24] = fixDate(billRow[colMap["DOS"]]);
-          risAOA[r][25] = fixDate(billRow[colMap["Charge Post"]]);
-          risAOA[r][26] = billRow[colMap["Procedure"]];
-          risAOA[r][27] = billRow[colMap["ASA Code"]];
-          risAOA[r][28] = billRow[colMap["Charge Amt"]];
-          risAOA[r][29] = billRow[colMap["Total Payment"]];
-          risAOA[r][30] = fixDate(billRow[colMap["Max Pay Date"]]);
-          risAOA[r][31] = fixDate(billRow[colMap["Max Pay Post"]]);
-          risAOA[r][32] = billRow[colMap["Primary Ins"]];
-          risAOA[r][33] = billRow[colMap["Secondary Ins"]];
-          risAOA[r][34] = billRow[colMap["Tertiary Ins"]];
-          risAOA[r][35] = billRow[colMap["Order Num"]];
+          risAOA[r][startReconCol + 1]  = billRow[colMap["Patient"]];
+          risAOA[r][startReconCol + 2]  = billRow[colMap["Location"]];
+          risAOA[r][startReconCol + 3]  = fixDate(billRow[colMap["DOS"]]);
+          risAOA[r][startReconCol + 4]  = fixDate(billRow[colMap["Charge Post"]]);
+          risAOA[r][startReconCol + 5]  = billRow[colMap["Procedure"]];
+          risAOA[r][startReconCol + 6]  = billRow[colMap["ASA Code"]];
+          risAOA[r][startReconCol + 7]  = billRow[colMap["Charge Amt"]];
+          risAOA[r][startReconCol + 8]  = billRow[colMap["Total Payment"]];
+          risAOA[r][startReconCol + 9]  = fixDate(billRow[colMap["Max Pay Date"]]);
+          risAOA[r][startReconCol + 10] = fixDate(billRow[colMap["Max Pay Post"]]);
+          risAOA[r][startReconCol + 11] = billRow[colMap["Primary Ins"]];
+          risAOA[r][startReconCol + 12] = billRow[colMap["Secondary Ins"]];
+          risAOA[r][startReconCol + 13] = billRow[colMap["Tertiary Ins"]];
+          risAOA[r][startReconCol + 14] = billRow[colMap["Order Num"]];
         }
       }
     }
@@ -199,7 +190,7 @@ function secondPass_NameCPT(risAOA, billAOA, colMap) {
 // PASS 3 — duplicate-no-accession
 // =========================
 
-function flagDuplicateNoAccession(risAOA) {
+function flagDuplicateNoAccession(risAOA, startReconCol) {
   const dict = {};
 
   for (let i = 8; i < risAOA.length; i++) {
@@ -207,10 +198,10 @@ function flagDuplicateNoAccession(risAOA) {
 
     if (accession !== "") {
       const key =
-        String(risAOA[i][11] || "").trim() + "|" + // new Name L
-        String(risAOA[i][5] || "").trim() + "|" +  // DOS F
-        String(risAOA[i][10] || "").trim() + "|" + // new MRN K
-        String(risAOA[i][6] || "").trim();         // ApptID G
+        String(risAOA[i][11] || "").trim() + "|" + // Name (L)
+        String(risAOA[i][5] || "").trim() + "|" +  // DOS (F)
+        String(risAOA[i][10] || "").trim() + "|" + // MRN (K)
+        String(risAOA[i][6] || "").trim();         // ApptID (G)
 
       dict[key] = true;
     }
@@ -218,7 +209,7 @@ function flagDuplicateNoAccession(risAOA) {
 
   for (let i = 8; i < risAOA.length; i++) {
     const accession = String(risAOA[i][7] || "").trim();
-    const reconcile = String(risAOA[i][21] || "").trim();
+    const reconcile = String(risAOA[i][startReconCol] || "").trim();
     const radiologist = String(risAOA[i][4] || "").trim();
 
     if (accession === "" && reconcile === "" && radiologist === "") {
@@ -229,7 +220,7 @@ function flagDuplicateNoAccession(risAOA) {
         String(risAOA[i][6] || "").trim();
 
       if (dict[key]) {
-        risAOA[i][21] = "duplicate-no accession";
+        risAOA[i][startReconCol] = "duplicate-no accession";
       }
     }
   }
@@ -241,7 +232,7 @@ function flagDuplicateNoAccession(risAOA) {
 // PASS 4 — duplicate-different accession & no radiology
 // =========================
 
-function flagDifferentAccessionNoRadiology(risAOA) {
+function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
   const dict = {};
 
   for (let i = 8; i < risAOA.length; i++) {
@@ -265,7 +256,7 @@ function flagDifferentAccessionNoRadiology(risAOA) {
   for (let i = 8; i < risAOA.length; i++) {
     const accession = String(risAOA[i][7] || "").trim();
     const radiologist = String(risAOA[i][4] || "").trim();
-    const reconcile = String(risAOA[i][21] || "").trim();
+    const reconcile = String(risAOA[i][startReconCol] || "").trim();
 
     const key =
       String(risAOA[i][11] || "").trim() + "|" +
@@ -275,7 +266,7 @@ function flagDifferentAccessionNoRadiology(risAOA) {
 
     if (dict[key] === "MULTI") {
       if (accession !== "" && radiologist === "" && reconcile === "") {
-        risAOA[i][21] = "duplicate-different accession & no radiology";
+        risAOA[i][startReconCol] = "duplicate-different accession & no radiology";
       }
     }
   }
@@ -287,15 +278,36 @@ function flagDifferentAccessionNoRadiology(risAOA) {
 // PASS 5 — NO MATCH for Completed WO Report / Reported
 // =========================
 
-function flagNoMatchCompletedOrReported(risAOA) {
+function flagNoMatchCompletedOrReported(risAOA, startReconCol) {
   for (let r = 8; r < risAOA.length; r++) {
-    const markVal = String(risAOA[r][21] || "").trim();
-    const statusVal = String(risAOA[r][24] || "").trim(); // new Appointment Status (Y)
+    const markVal = String(risAOA[r][startReconCol] || "").trim();
+    const statusVal = String(risAOA[r][24] || "").trim(); // Appointment Status (Y)
 
     if (markVal === "") {
       if (statusVal === "Completed WO Report" || statusVal === "Reported") {
-        risAOA[r][21] = "NO MATCH";
+        risAOA[r][startReconCol] = "NO MATCH";
       }
+    }
+  }
+
+  return risAOA;
+}
+
+// =========================
+// FINAL CLEANUP — enforce allowed values
+// =========================
+
+function finalizeReconcileColumn(risAOA, startReconCol) {
+  for (let r = 8; r < risAOA.length; r++) {
+    const val = String(risAOA[r][startReconCol] || "").trim();
+
+    if (
+      val !== "MATCH" &&
+      val !== "NO MATCH" &&
+      val !== "duplicate-no accession" &&
+      val !== "duplicate-different accession & no radiology"
+    ) {
+      risAOA[r][startReconCol] = "NO MATCH";
     }
   }
 
@@ -343,6 +355,9 @@ async function runReconciliation() {
     }
 
     const headerRow = 7;
+    const risHeader = risAOA[headerRow] || [];
+    const startReconCol = risHeader.length;
+
     const newHeaders = [
       "Reconcile", "Patient", "Location", "DOS", "Charge Post",
       "Procedure", "ASA Code", "Charge Amt", "Total Payment",
@@ -352,14 +367,15 @@ async function runReconciliation() {
 
     if (!risAOA[headerRow]) risAOA[headerRow] = [];
     for (let i = 0; i < newHeaders.length; i++) {
-      risAOA[headerRow][21 + i] = newHeaders[i];
+      risAOA[headerRow][startReconCol + i] = newHeaders[i];
     }
 
-    risAOA = firstPass_OrderNum(risAOA, billAOA, colMap);
-    risAOA = secondPass_NameCPT(risAOA, billAOA, colMap);
-    risAOA = flagDuplicateNoAccession(risAOA);
-    risAOA = flagDifferentAccessionNoRadiology(risAOA);
-    risAOA = flagNoMatchCompletedOrReported(risAOA);
+    risAOA = firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol);
+    risAOA = secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol);
+    risAOA = flagDuplicateNoAccession(risAOA, startReconCol);
+    risAOA = flagDifferentAccessionNoRadiology(risAOA, startReconCol);
+    risAOA = flagNoMatchCompletedOrReported(risAOA, startReconCol);
+    risAOA = finalizeReconcileColumn(risAOA, startReconCol);
 
     const outSheet = XLSX.utils.aoa_to_sheet(risAOA);
     const outWb = XLSX.utils.book_new();
