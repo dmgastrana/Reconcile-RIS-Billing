@@ -67,21 +67,6 @@ function fixDate(v) {
   return `${mm}/${dd}/${yyyy}`;
 }
 
-
-
-// Remove footer rows like "Confidential and Proprietary..."
-risAOA = risAOA.filter(row => {
-  const firstCell = String(row[0] || "").trim();
-  return !firstCell.startsWith("Confidential and Proprietary");
-});
-
-
-
-
-
-
-
-
 // =========================
 // PASS 1 — Order Num match
 // =========================
@@ -100,7 +85,6 @@ function firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol) {
 
   for (let r = 8; r < risAOA.length; r++) {
     const accession = normalizeAccession(risAOA[r][7]);
-
     if (!accession) continue;
 
     if (dictOrder[accession]) {
@@ -123,8 +107,6 @@ function firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol) {
       risAOA[r][startReconCol + 12] = billRow[colMap["Secondary Ins"]];
       risAOA[r][startReconCol + 13] = billRow[colMap["Tertiary Ins"]];
       risAOA[r][startReconCol + 14] = billRow[colMap["Order Num"]];
-    } else {
-      risAOA[r][startReconCol] = "NO MATCH";
     }
   }
 
@@ -167,8 +149,8 @@ function secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol) {
       const accession = normalizeAccession(risAOA[r][7]);
       if (accession) continue;
 
-      const risName = normalizeName(risAOA[r][11]); // Patient Name (L)
-      const cpt = cleanCPT(risAOA[r][19]); // CPT Code (T)
+      const risName = normalizeName(risAOA[r][11]);
+      const cpt = cleanCPT(risAOA[r][19]);
 
       if (risName && cpt) {
         const key = risName + "|" + cpt;
@@ -202,7 +184,7 @@ function secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol) {
 }
 
 // =========================
-// PASS 3 — duplicate-no-accession
+// PASS 3 — duplicate-no accession
 // =========================
 
 function flagDuplicateNoAccession(risAOA, startReconCol) {
@@ -213,10 +195,10 @@ function flagDuplicateNoAccession(risAOA, startReconCol) {
 
     if (accession !== "") {
       const key =
-        String(risAOA[i][11] || "").trim() + "|" + // Name (L)
-        String(risAOA[i][5] || "").trim() + "|" +  // DOS (F)
-        String(risAOA[i][10] || "").trim() + "|" + // MRN (K)
-        String(risAOA[i][6] || "").trim();         // ApptID (G)
+        String(risAOA[i][11] || "").trim() + "|" +
+        String(risAOA[i][5] || "").trim() + "|" +
+        String(risAOA[i][10] || "").trim() + "|" +
+        String(risAOA[i][6] || "").trim();
 
       dict[key] = true;
     }
@@ -246,6 +228,7 @@ function flagDuplicateNoAccession(risAOA, startReconCol) {
 // =========================
 // PASS 4 — duplicate-different accession & no radiology
 // =========================
+
 function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
   const dict = {};
 
@@ -291,16 +274,47 @@ function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
   return risAOA;
 }
 
+// =========================
+// PASS 5 — NO MATCH-but paid
+// =========================
 
+function flagNoMatchButPaid(risAOA, billAOA, colMap, startReconCol) {
+  const payCol = colMap["Total Payment"];
+  const orderCol = colMap["Order Num"];
+
+  for (let r = 8; r < risAOA.length; r++) {
+    const reconcile = String(risAOA[r][startReconCol] || "").trim();
+    const accession = String(risAOA[r][7] || "").trim();
+    const radiologist = String(risAOA[r][4] || "").trim();
+
+    if (reconcile !== "NO MATCH") continue;
+    if (accession !== "" || radiologist !== "") continue;
+
+    const orderNum = String(risAOA[r][7] || "").trim();
+    if (!orderNum) continue;
+
+    for (let b = 10; b < billAOA.length; b++) {
+      const billOrder = String(billAOA[b][orderCol] || "").trim();
+      if (billOrder === orderNum) {
+        const payment = Number(billAOA[b][payCol] || 0);
+        if (payment > 0) {
+          risAOA[r][startReconCol] = "NO MATCH-but paid";
+        }
+      }
+    }
+  }
+
+  return risAOA;
+}
 
 // =========================
-// PASS 5 — NO MATCH for Completed WO Report / Reported
+// PASS 6 — NO MATCH for Completed WO Report / Reported
 // =========================
 
 function flagNoMatchCompletedOrReported(risAOA, startReconCol) {
   for (let r = 8; r < risAOA.length; r++) {
     const markVal = String(risAOA[r][startReconCol] || "").trim();
-    const statusVal = String(risAOA[r][24] || "").trim(); // Appointment Status (Y)
+    const statusVal = String(risAOA[r][24] || "").trim();
 
     if (markVal === "") {
       if (statusVal === "Completed WO Report" || statusVal === "Reported") {
@@ -313,7 +327,7 @@ function flagNoMatchCompletedOrReported(risAOA, startReconCol) {
 }
 
 // =========================
-// FINAL CLEANUP — enforce allowed values
+// PASS 7 — FINAL CLEANUP
 // =========================
 
 function finalizeReconcileColumn(risAOA, startReconCol) {
@@ -323,6 +337,7 @@ function finalizeReconcileColumn(risAOA, startReconCol) {
     if (
       val !== "MATCH" &&
       val !== "NO MATCH" &&
+      val !== "NO MATCH-but paid" &&
       val !== "duplicate-no accession" &&
       val !== "duplicate-different accession & no radiology"
     ) {
@@ -366,6 +381,12 @@ async function runReconciliation() {
     const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
     let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
+    // REMOVE FOOTER ROW
+    risAOA = risAOA.filter(row => {
+      const firstCell = String(row[0] || "").trim();
+      return !firstCell.startsWith("Confidential and Proprietary");
+    });
+
     const billHeaderRow = billAOA[9] || [];
     const colMap = {};
     for (let c = 0; c < billHeaderRow.length; c++) {
@@ -389,19 +410,9 @@ async function runReconciliation() {
       risAOA[headerRow][startReconCol + i] = newHeaders[i];
     }
 
+    // RUN PASSES IN CORRECT VBA ORDER
     risAOA = firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol);
     risAOA = secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol);
     risAOA = flagDuplicateNoAccession(risAOA, startReconCol);
     risAOA = flagDifferentAccessionNoRadiology(risAOA, startReconCol);
-    risAOA = flagNoMatchCompletedOrReported(risAOA, startReconCol);
-    risAOA = finalizeReconcileColumn(risAOA, startReconCol);
-
-    const outSheet = XLSX.utils.aoa_to_sheet(risAOA);
-    const outWb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(outWb, outSheet, "RIS - Appointment Procedure Sum");
-    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
-
-  } catch (err) {
-    summary.textContent = "ERROR: " + err.message;
-  }
-}
+    risAOA = flag
