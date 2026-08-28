@@ -231,18 +231,18 @@ function flagDuplicateNoAccession(risAOA, startReconCol) {
 // =========================
 // PASS 4 — duplicate-different accession & no radiology
 // =========================
-
 function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
   const dict = {};
 
+  // FIRST PASS — detect MULTI
   for (let i = 8; i < risAOA.length; i++) {
     const accession = String(risAOA[i][7] || "").trim();
+    const name = String(risAOA[i][11] || "").trim();
+    const dos = String(risAOA[i][5] || "").trim();
+    const mrn = String(risAOA[i][10] || "").trim();
+    const appt = String(risAOA[i][6] || "").trim();
 
-    const key =
-      String(risAOA[i][11] || "").trim() + "|" +
-      String(risAOA[i][5] || "").trim() + "|" +
-      String(risAOA[i][10] || "").trim() + "|" +
-      String(risAOA[i][6] || "").trim();
+    const key = name + "|" + dos + "|" + mrn + "|" + appt;
 
     if (!dict[key]) {
       dict[key] = accession;
@@ -253,16 +253,18 @@ function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
     }
   }
 
+  // SECOND PASS — flag rows
   for (let i = 8; i < risAOA.length; i++) {
     const accession = String(risAOA[i][7] || "").trim();
     const radiologist = String(risAOA[i][4] || "").trim();
     const reconcile = String(risAOA[i][startReconCol] || "").trim();
 
-    const key =
-      String(risAOA[i][11] || "").trim() + "|" +
-      String(risAOA[i][5] || "").trim() + "|" +
-      String(risAOA[i][10] || "").trim() + "|" +
-      String(risAOA[i][6] || "").trim();
+    const name = String(risAOA[i][11] || "").trim();
+    const dos = String(risAOA[i][5] || "").trim();
+    const mrn = String(risAOA[i][10] || "").trim();
+    const appt = String(risAOA[i][6] || "").trim();
+
+    const key = name + "|" + dos + "|" + mrn + "|" + appt;
 
     if (dict[key] === "MULTI") {
       if (accession !== "" && radiologist === "" && reconcile === "") {
@@ -273,6 +275,8 @@ function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
 
   return risAOA;
 }
+
+
 
 // =========================
 // PASS 5 — NO MATCH for Completed WO Report / Reported
