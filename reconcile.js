@@ -67,6 +67,21 @@ function fixDate(v) {
   return `${mm}/${dd}/${yyyy}`;
 }
 
+
+
+// Remove footer rows like "Confidential and Proprietary..."
+risAOA = risAOA.filter(row => {
+  const firstCell = String(row[0] || "").trim();
+  return !firstCell.startsWith("Confidential and Proprietary");
+});
+
+
+
+
+
+
+
+
 // =========================
 // PASS 1 — Order Num match
 // =========================
