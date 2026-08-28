@@ -275,40 +275,7 @@ function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
 }
 
 // =========================
-// PASS 5 — NO MATCH-but paid
-// =========================
-
-function flagNoMatchButPaid(risAOA, billAOA, colMap, startReconCol) {
-  const payCol = colMap["Total Payment"];
-  const orderCol = colMap["Order Num"];
-
-  for (let r = 8; r < risAOA.length; r++) {
-    const reconcile = String(risAOA[r][startReconCol] || "").trim();
-    const accession = String(risAOA[r][7] || "").trim();
-    const radiologist = String(risAOA[r][4] || "").trim();
-
-    if (reconcile !== "NO MATCH") continue;
-    if (accession !== "" || radiologist !== "") continue;
-
-    const orderNum = String(risAOA[r][7] || "").trim();
-    if (!orderNum) continue;
-
-    for (let b = 10; b < billAOA.length; b++) {
-      const billOrder = String(billAOA[b][orderCol] || "").trim();
-      if (billOrder === orderNum) {
-        const payment = Number(billAOA[b][payCol] || 0);
-        if (payment > 0) {
-          risAOA[r][startReconCol] = "NO MATCH-but paid";
-        }
-      }
-    }
-  }
-
-  return risAOA;
-}
-
-// =========================
-// PASS 6 — NO MATCH for Completed WO Report / Reported
+// PASS 5 — NO MATCH for Completed WO Report / Reported
 // =========================
 
 function flagNoMatchCompletedOrReported(risAOA, startReconCol) {
@@ -327,7 +294,7 @@ function flagNoMatchCompletedOrReported(risAOA, startReconCol) {
 }
 
 // =========================
-// PASS 7 — FINAL CLEANUP
+// PASS 6 — FINAL CLEANUP
 // =========================
 
 function finalizeReconcileColumn(risAOA, startReconCol) {
@@ -337,7 +304,6 @@ function finalizeReconcileColumn(risAOA, startReconCol) {
     if (
       val !== "MATCH" &&
       val !== "NO MATCH" &&
-      val !== "NO MATCH-but paid" &&
       val !== "duplicate-no accession" &&
       val !== "duplicate-different accession & no radiology"
     ) {
@@ -410,9 +376,20 @@ async function runReconciliation() {
       risAOA[headerRow][startReconCol + i] = newHeaders[i];
     }
 
-    // RUN PASSES IN CORRECT VBA ORDER
+    // RUN PASSES IN CORRECT ORDER
     risAOA = firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol);
     risAOA = secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol);
     risAOA = flagDuplicateNoAccession(risAOA, startReconCol);
     risAOA = flagDifferentAccessionNoRadiology(risAOA, startReconCol);
-    risAOA = flag
+    risAOA = flagNoMatchCompletedOrReported(risAOA, startReconCol);
+    risAOA = finalizeReconcileColumn(risAOA, startReconCol);
+
+    const outSheet = XLSX.utils.aoa_to_sheet(risAOA);
+    const outWb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(outWb, outSheet, "RIS - Appointment Procedure Sum");
+    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
+
+  } catch (err) {
+    summary.textContent = "ERROR: " + err.message;
+  }
+}
