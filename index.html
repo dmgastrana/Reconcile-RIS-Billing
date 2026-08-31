@@ -134,6 +134,9 @@
     <!-- SUMMARY OUTPUT -->
     <div id="summary"></div>
 
+    <!-- SUMMARY TABLE OUTPUT -->
+    <div id="resultTable" style="margin-top:20px;"></div>
+
   </div>
 
 </div>
@@ -141,7 +144,7 @@
 <script>
 function checkPassword() {
   const pw = document.getElementById("pwInput").value;
-  if (pw === "dmg1129") {
+  if (pw === "none1215") {
     document.getElementById("passwordPage").style.display = "none";
     document.getElementById("reconPage").style.display = "block";
   } else {
@@ -166,6 +169,20 @@ document.getElementById("runBtn").addEventListener("click", async () => {
 
   document.getElementById("summary").textContent =
     "Reconciliation complete.\nOutput file downloaded.";
+
+  // Display summary table (values are set inside reconcile.js)
+  const summaryBox = document.getElementById("resultTable");
+
+  summaryBox.innerHTML = `
+    <table border="1" cellpadding="6" cellspacing="0" style="margin-top:10px;">
+      <tr><th colspan="2">Reconciliation Report - Abbadox with Charge Transactions Detail</th></tr>
+      <tr><td>Date of Service</td><td>${window.reconDOS}</td></tr>
+      <tr><td>Total Appointment ID</td><td>${window.totalAppt}</td></tr>
+      <tr><td>MATCH</td><td>${window.matchCount}</td></tr>
+      <tr><td>NO MATCH</td><td>${window.noMatchCount}</td></tr>
+      <tr><td>% NO MATCH</td><td>${window.pctNoMatch}%</td></tr>
+    </table>
+  `;
 });
 </script>
 
