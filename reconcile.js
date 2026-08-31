@@ -1,3 +1,4 @@
+
 // =========================
 // Utility Functions
 // =========================
@@ -285,16 +286,33 @@ async function runReconciliation() {
     risAOA = finalizeReconcileColumn(risAOA, startReconCol);
 
     // =========================
-    // SUMMARY CALCULATIONS
+    // SUMMARY CALCULATIONS (FIXED)
     // =========================
 
     const totalAppt = risAOA.length - 8;
-    let matchCount = 0, noMatchCount = 0;
+    let matchCount = 0;
+    let noMatchCount = 0;
 
     for (let r = 8; r < risAOA.length; r++) {
-      const val = String(risAOA[r][startReconCol] || "").trim().toUpperCase();
-      if (val === "MATCH") matchCount++;
-      if (val === "NO MATCH") noMatchCount++;
+      const val = String(risAOA[r][startReconCol] || "").trim();
+
+      if (val === "MATCH") {
+        matchCount++;
+      }
+
+      if (val === "NO MATCH") {
+        const accession = String(risAOA[r][7] || "").trim();
+        const radiologist = String(risAOA[r][4] || "").trim();
+        const statusVal = String(risAOA[r][24] || "").trim();
+
+        if (
+          accession !== "" &&
+          radiologist !== "" &&
+          (statusVal === "Completed WO Report" || statusVal === "Reported")
+        ) {
+          noMatchCount++;
+        }
+      }
     }
 
     const pctNoMatch = ((noMatchCount / matchCount) * 100).toFixed(2);
@@ -304,49 +322,27 @@ async function runReconciliation() {
     window.noMatchCount = noMatchCount;
     window.pctNoMatch = pctNoMatch;
 
+    // =========================
+    // GROUP BY RECONCILE (Pivot-style)
+    // =========================
 
+    const groupCounts = {
+      "duplicate-different accession & no radiology": 0,
+      "duplicate-no accession": 0,
+      "MATCH": 0,
+      "NO MATCH": 0
+    };
 
+    for (let r = 8; r < risAOA.length; r++) {
+      const val = String(risAOA[r][startReconCol] || "").trim();
+      if (groupCounts[val] != null) {
+        groupCounts[val]++;
+      }
+    }
 
-// =========================
-// GROUP BY RECONCILE (Pivot-style)
-// =========================
+    groupCounts["Grand Total"] = risAOA.length - 8;
 
-const groupCounts = {
-  "duplicate-different accession & no radiology": 0,
-  "duplicate-no accession": 0,
-  "MATCH": 0,
-  "NO MATCH": 0
-};
-
-for (let r = 8; r < risAOA.length; r++) {
-  const val = String(risAOA[r][startReconCol] || "").trim();
-  if (groupCounts[val] != null) {
-    groupCounts[val]++;
-  }
-}
-
-groupCounts["Grand Total"] = risAOA.length - 8;
-
-// expose to HTML
-window.groupCounts = groupCounts;
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
+    window.groupCounts = groupCounts;
 
     // =========================
     // WRITE OUTPUT FILE
