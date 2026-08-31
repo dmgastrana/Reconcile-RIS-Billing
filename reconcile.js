@@ -347,6 +347,11 @@ async function runReconciliation() {
     const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
     let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
+    // ⭐ FIX RIS DATE OF SERVICE (Column F = index 5)
+    for (let r = 8; r < risAOA.length; r++) {
+      risAOA[r][5] = fixDate(risAOA[r][5]);
+    }
+
     // REMOVE FOOTER ROW
     risAOA = risAOA.filter(row => {
       const firstCell = String(row[0] || "").trim();
