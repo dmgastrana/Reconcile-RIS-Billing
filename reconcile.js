@@ -1,4 +1,3 @@
-
 // =========================
 // Utility Functions
 // =========================
@@ -286,7 +285,7 @@ async function runReconciliation() {
     risAOA = finalizeReconcileColumn(risAOA, startReconCol);
 
     // =========================
-    // SUMMARY CALCULATIONS (FIXED)
+    // SUMMARY CALCULATIONS (NO MATCH FIXED TO TRUE COUNT = 25)
     // =========================
 
     const totalAppt = risAOA.length - 8;
@@ -301,15 +300,10 @@ async function runReconciliation() {
       }
 
       if (val === "NO MATCH") {
-        const accession = String(risAOA[r][7] || "").trim();
-        const radiologist = String(risAOA[r][4] || "").trim();
         const statusVal = String(risAOA[r][24] || "").trim();
 
-        if (
-          accession !== "" &&
-          radiologist !== "" &&
-          (statusVal === "Completed WO Report" || statusVal === "Reported")
-        ) {
+        // TRUE NO MATCH RULE (matches Excel pivot)
+        if (statusVal === "Completed WO Report" || statusVal === "Reported") {
           noMatchCount++;
         }
       }
@@ -323,7 +317,7 @@ async function runReconciliation() {
     window.pctNoMatch = pctNoMatch;
 
     // =========================
-    // GROUP BY RECONCILE (Pivot-style)
+    // GROUP BY RECONCILE (NO MATCH FIXED TO TRUE COUNT = 25)
     // =========================
 
     const groupCounts = {
@@ -335,13 +329,24 @@ async function runReconciliation() {
 
     for (let r = 8; r < risAOA.length; r++) {
       const val = String(risAOA[r][startReconCol] || "").trim();
-      if (groupCounts[val] != null) {
-        groupCounts[val]++;
+
+      if (val === "MATCH") {
+        groupCounts["MATCH"]++;
+      } else if (val === "duplicate-no accession") {
+        groupCounts["duplicate-no accession"]++;
+      } else if (val === "duplicate-different accession & no radiology") {
+        groupCounts["duplicate-different accession & no radiology"]++;
+      } else if (val === "NO MATCH") {
+        const statusVal = String(risAOA[r][24] || "").trim();
+
+        // TRUE NO MATCH RULE
+        if (statusVal === "Completed WO Report" || statusVal === "Reported") {
+          groupCounts["NO MATCH"]++;
+        }
       }
     }
 
     groupCounts["Grand Total"] = risAOA.length - 8;
-
     window.groupCounts = groupCounts;
 
     // =========================
@@ -359,3 +364,4 @@ async function runReconciliation() {
     summary.textContent = "ERROR: " + err.message;
   }
 }
+
