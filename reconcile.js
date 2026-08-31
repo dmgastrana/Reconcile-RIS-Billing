@@ -304,6 +304,50 @@ async function runReconciliation() {
     window.noMatchCount = noMatchCount;
     window.pctNoMatch = pctNoMatch;
 
+
+
+
+// =========================
+// GROUP BY RECONCILE (Pivot-style)
+// =========================
+
+const groupCounts = {
+  "duplicate-different accession & no radiology": 0,
+  "duplicate-no accession": 0,
+  "MATCH": 0,
+  "NO MATCH": 0
+};
+
+for (let r = 8; r < risAOA.length; r++) {
+  const val = String(risAOA[r][startReconCol] || "").trim();
+  if (groupCounts[val] != null) {
+    groupCounts[val]++;
+  }
+}
+
+groupCounts["Grand Total"] = risAOA.length - 8;
+
+// expose to HTML
+window.groupCounts = groupCounts;
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
     // =========================
     // WRITE OUTPUT FILE
     // =========================
