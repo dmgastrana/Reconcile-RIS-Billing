@@ -1,191 +1,419 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Reconciliation Tool</title>
+// =========================
+// Utility Functions
+// =========================
 
-  <!-- SheetJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <!-- Reconciliation Logic -->
-  <script src="reconcile.js"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      margin: 0;
-      padding: 40px;
-      display: flex;
-      justify-content: center;
-    }
-
-    .container {
-      background: white;
-      padding: 30px;
-      width: 650px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
-
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
-
-    .upload-btn {
-      width: 100%;
-      padding: 12px;
-      background: #6b7280;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      margin-bottom: 5px;
-    }
-
-    .upload-btn:hover {
-      background: #4b5563;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    button {
-      width: 100%;
-      margin-top: 10px;
-      padding: 14px;
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    button:hover {
-      background: #1e40af;
-    }
-
-    .upload-status {
-      margin: 12px 0 28px 0;
-      color: green;
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    #summary {
-      margin-top: 20px;
-      white-space: pre-line;
-      font-weight: bold;
-      text-align: left;
-      font-family: monospace;
-      font-size: 16px;
-      line-height: 1.6;
-    }
-
-    #passwordPage { display: block; }
-    #reconPage { display: none; }
-
-    #pwError {
-      color: red;
-      text-align: center;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-  </style>
-</head>
-
-<body>
-
-<div class="container">
-
-  <!-- PASSWORD PAGE -->
-  <div id="passwordPage">
-    <h2>Enter Password</h2>
-    <input id="pwInput" type="password" placeholder="Enter password"
-           style="width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #ccc;">
-    <button onclick="checkPassword()">Submit</button>
-    <div id="pwError"></div>
-  </div>
-
-  <!-- RECON PAGE -->
-  <div id="reconPage">
-
-    <h2>Reconciliation</h2>
-
-    <!-- BILLING FILE -->
-    <label class="upload-btn" for="billingFile">Upload Billing Charge Report</label>
-    <input type="file" id="billingFile" onchange="showFileName('billingFile','billingStatus')">
-    <div id="billingStatus" class="upload-status"></div>
-
-    <!-- RIS FILE -->
-    <label class="upload-btn" for="risFile">Upload Abbadox RIS Procedure Report</label>
-    <input type="file" id="risFile" onchange="showFileName('risFile','risStatus')">
-    <div id="risStatus" class="upload-status"></div>
-
-    <!-- RECONCILE BUTTON -->
-    <button id="runBtn">Reconcile</button>
-
-    <!-- SUMMARY OUTPUT -->
-    <div id="summary"></div>
-
-    <!-- SUMMARY TABLE OUTPUT -->
-    <div id="resultTable" style="margin-top:20px;"></div>
-
-  </div>
-
-</div>
-
-<script>
-function checkPassword() {
-  const pw = document.getElementById("pwInput").value;
-  if (pw === "none1215") {
-    document.getElementById("passwordPage").style.display = "none";
-    document.getElementById("reconPage").style.display = "block";
-  } else {
-    document.getElementById("pwError").textContent = "Incorrect password";
-  }
+function normalizeAccession(value) {
+  return String(value || "").trim();
 }
 
-function showFileName(inputId, statusId) {
-  const fileInput = document.getElementById(inputId);
-  const statusDiv = document.getElementById(statusId);
-  if (fileInput.files.length > 0) {
-    statusDiv.textContent = "Uploaded: " + fileInput.files[0].name;
-  } else {
-    statusDiv.textContent = "";
+function normalizeName(raw) {
+  let s = String(raw || "");
+
+  if (s.includes("-")) {
+    const parts = s.split("-");
+    s = parts[parts.length - 1].trim();
   }
+
+  s = s
+    .replace(/\u00A0/g, " ")
+    .replace(/\u3000/g, " ")
+    .replace(/\u200B/g, "")
+    .replace(/\uFEFF/g, "")
+    .replace(/\u202F/g, " ");
+
+  s = s.replace(/[,.;]/g, " ").replace(/\s\s+/g, " ").trim().toUpperCase();
+  if (!s) return "";
+
+  const parts = s.split(" ");
+
+  if (String(raw).includes(",")) {
+    const last = parts[0];
+    let first = "";
+    for (let i = 1; i < parts.length; i++) first += parts[i] + " ";
+    return (first.trim() + " " + last).trim();
+  }
+
+  let first = "";
+  for (let i = 0; i < parts.length - 1; i++) first += parts[i] + " ";
+  const last = parts[parts.length - 1];
+  return (first.trim() + " " + last).trim();
 }
 
-document.getElementById("runBtn").addEventListener("click", async () => {
-  document.getElementById("summary").textContent = "Processing…";
+function cleanCPT(rawCPT) {
+  const s = String(rawCPT || "");
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    if (/[0-9]/.test(s[i])) out += s[i];
+  }
+  return out;
+}
 
-  await runReconciliation();
+function fixDate(v) {
+  if (!v) return v;
 
-  document.getElementById("summary").textContent =
-    "Reconciliation complete.\nOutput file downloaded.";
+  let d;
+  if (typeof v === "number") {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    d = new Date(excelEpoch.getTime() + v * 86400000);
+  } else {
+    d = new Date(v);
+  }
 
-  // Display summary table (values are set inside reconcile.js)
-  const summaryBox = document.getElementById("resultTable");
+  if (isNaN(d)) return v;
 
-  summaryBox.innerHTML = `
-    <table border="1" cellpadding="6" cellspacing="0" style="margin-top:10px;">
-      <tr><th colspan="2">Reconciliation Report - Abbadox with Charge Transactions Detail</th></tr>
-      <tr><td>Date of Service</td><td>${window.reconDOS}</td></tr>
-      <tr><td>Total Appointment ID</td><td>${window.totalAppt}</td></tr>
-      <tr><td>MATCH</td><td>${window.matchCount}</td></tr>
-      <tr><td>NO MATCH</td><td>${window.noMatchCount}</td></tr>
-      <tr><td>% NO MATCH</td><td>${window.pctNoMatch}%</td></tr>
-    </table>
-  `;
-});
-</script>
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
 
-</body>
-</html>
+// =========================
+// PASS 1 — Order Num match
+// =========================
 
+function firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol) {
+  const dictOrder = {};
+  const orderCol = colMap["Order Num"];
+
+  for (let r = 10; r < billAOA.length; r++) {
+    const key = String(billAOA[r][orderCol] || "").trim();
+    if (key.length > 0) {
+      if (!dictOrder[key]) dictOrder[key] = [];
+      dictOrder[key].push(r);
+    }
+  }
+
+  for (let r = 8; r < risAOA.length; r++) {
+    const accession = normalizeAccession(risAOA[r][7]);
+    if (!accession) continue;
+
+    if (dictOrder[accession]) {
+      const bestRow = dictOrder[accession][0];
+      const billRow = billAOA[bestRow];
+
+      risAOA[r][startReconCol] = "MATCH";
+
+      risAOA[r][startReconCol + 1]  = billRow[colMap["Patient"]];
+      risAOA[r][startReconCol + 2]  = billRow[colMap["Location"]];
+      risAOA[r][startReconCol + 3]  = fixDate(billRow[colMap["DOS"]]);
+      risAOA[r][startReconCol + 4]  = fixDate(billRow[colMap["Charge Post"]]);
+      risAOA[r][startReconCol + 5]  = billRow[colMap["Procedure"]];
+      risAOA[r][startReconCol + 6]  = billRow[colMap["ASA Code"]];
+      risAOA[r][startReconCol + 7]  = billRow[colMap["Charge Amt"]];
+      risAOA[r][startReconCol + 8]  = billRow[colMap["Total Payment"]];
+      risAOA[r][startReconCol + 9]  = fixDate(billRow[colMap["Max Pay Date"]]);
+      risAOA[r][startReconCol + 10] = fixDate(billRow[colMap["Max Pay Post"]]);
+      risAOA[r][startReconCol + 11] = billRow[colMap["Primary Ins"]];
+      risAOA[r][startReconCol + 12] = billRow[colMap["Secondary Ins"]];
+      risAOA[r][startReconCol + 13] = billRow[colMap["Tertiary Ins"]];
+      risAOA[r][startReconCol + 14] = billRow[colMap["Order Num"]];
+    }
+  }
+
+  return risAOA;
+}
+
+// =========================
+// PASS 2 — Name + CPT match
+// =========================
+
+function secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol) {
+  const dictNameCPT = {};
+  const patientCol = colMap["Patient"];
+  const procCol = colMap["Procedure"];
+
+  let firstChargeRow = 0;
+  for (let r = 0; r < billAOA.length; r++) {
+    const val = String(billAOA[r][patientCol] || "");
+    if (val.includes("-")) {
+      firstChargeRow = r;
+      break;
+    }
+  }
+
+  if (firstChargeRow > 0) {
+    for (let r = firstChargeRow; r < billAOA.length; r++) {
+      const rptName = normalizeName(billAOA[r][patientCol]);
+      const rptCPT = cleanCPT(billAOA[r][procCol]);
+
+      if (rptName && rptCPT) {
+        const key = rptName + "|" + rptCPT;
+        if (!dictNameCPT[key]) dictNameCPT[key] = r;
+      }
+    }
+
+    for (let r = 8; r < risAOA.length; r++) {
+      const reconcile = String(risAOA[r][startReconCol] || "").trim().toUpperCase();
+      if (reconcile === "MATCH") continue;
+
+      const accession = normalizeAccession(risAOA[r][7]);
+      if (accession) continue;
+
+      const risName = normalizeName(risAOA[r][11]);
+      const cpt = cleanCPT(risAOA[r][19]);
+
+      if (risName && cpt) {
+        const key = risName + "|" + cpt;
+
+        if (dictNameCPT[key] != null) {
+          const bestRow = dictNameCPT[key];
+          const billRow = billAOA[bestRow];
+
+          risAOA[r][startReconCol] = "MATCH";
+
+          risAOA[r][startReconCol + 1]  = billRow[colMap["Patient"]];
+          risAOA[r][startReconCol + 2]  = billRow[colMap["Location"]];
+          risAOA[r][startReconCol + 3]  = fixDate(billRow[colMap["DOS"]]);
+          risAOA[r][startReconCol + 4]  = fixDate(billRow[colMap["Charge Post"]]);
+          risAOA[r][startReconCol + 5]  = billRow[colMap["Procedure"]];
+          risAOA[r][startReconCol + 6]  = billRow[colMap["ASA Code"]];
+          risAOA[r][startReconCol + 7]  = billRow[colMap["Charge Amt"]];
+          risAOA[r][startReconCol + 8]  = billRow[colMap["Total Payment"]];
+          risAOA[r][startReconCol + 9]  = fixDate(billRow[colMap["Max Pay Date"]]);
+          risAOA[r][startReconCol + 10] = fixDate(billRow[colMap["Max Pay Post"]]);
+          risAOA[r][startReconCol + 11] = billRow[colMap["Primary Ins"]];
+          risAOA[r][startReconCol + 12] = billRow[colMap["Secondary Ins"]];
+          risAOA[r][startReconCol + 13] = billRow[colMap["Tertiary Ins"]];
+          risAOA[r][startReconCol + 14] = billRow[colMap["Order Num"]];
+        }
+      }
+    }
+  }
+
+  return risAOA;
+}
+
+// =========================
+// PASS 3 — duplicate-no accession
+// =========================
+
+function flagDuplicateNoAccession(risAOA, startReconCol) {
+  const dict = {};
+
+  for (let i = 8; i < risAOA.length; i++) {
+    const accession = String(risAOA[i][7] || "").trim();
+
+    if (accession !== "") {
+      const key =
+        String(risAOA[i][11] || "").trim() + "|" +
+        String(risAOA[i][5] || "").trim() + "|" +
+        String(risAOA[i][10] || "").trim() + "|" +
+        String(risAOA[i][6] || "").trim();
+
+      dict[key] = true;
+    }
+  }
+
+  for (let i = 8; i < risAOA.length; i++) {
+    const accession = String(risAOA[i][7] || "").trim();
+    const reconcile = String(risAOA[i][startReconCol] || "").trim();
+    const radiologist = String(risAOA[i][4] || "").trim();
+
+    if (accession === "" && reconcile === "" && radiologist === "") {
+      const key =
+        String(risAOA[i][11] || "").trim() + "|" +
+        String(risAOA[i][5] || "").trim() + "|" +
+        String(risAOA[i][10] || "").trim() + "|" +
+        String(risAOA[i][6] || "").trim();
+
+      if (dict[key]) {
+        risAOA[i][startReconCol] = "duplicate-no accession";
+      }
+    }
+  }
+
+  return risAOA;
+}
+
+// =========================
+// PASS 4 — duplicate-different accession & no radiology
+// =========================
+
+function flagDifferentAccessionNoRadiology(risAOA, startReconCol) {
+  const dict = {};
+
+  // FIRST PASS — detect MULTI
+  for (let i = 8; i < risAOA.length; i++) {
+    const accession = String(risAOA[i][7] || "").trim();
+    const name = String(risAOA[i][11] || "").trim();
+    const dos = String(risAOA[i][5] || "").trim();
+    const mrn = String(risAOA[i][10] || "").trim();
+    const appt = String(risAOA[i][6] || "").trim();
+
+    const key = name + "|" + dos + "|" + mrn + "|" + appt;
+
+    if (!dict[key]) {
+      dict[key] = accession;
+    } else {
+      if (accession !== "" && dict[key] !== accession) {
+        dict[key] = "MULTI";
+      }
+    }
+  }
+
+  // SECOND PASS — flag rows
+  for (let i = 8; i < risAOA.length; i++) {
+    const accession = String(risAOA[i][7] || "").trim();
+    const radiologist = String(risAOA[i][4] || "").trim();
+    const reconcile = String(risAOA[i][startReconCol] || "").trim();
+
+    const name = String(risAOA[i][11] || "").trim();
+    const dos = String(risAOA[i][5] || "").trim();
+    const mrn = String(risAOA[i][10] || "").trim();
+    const appt = String(risAOA[i][6] || "").trim();
+
+    const key = name + "|" + dos + "|" + mrn + "|" + appt;
+
+    if (dict[key] === "MULTI") {
+      if (accession !== "" && radiologist === "" && reconcile === "") {
+        risAOA[i][startReconCol] = "duplicate-different accession & no radiology";
+      }
+    }
+  }
+
+  return risAOA;
+}
+
+// =========================
+// PASS 5 — NO MATCH for Completed WO Report / Reported
+// =========================
+
+function flagNoMatchCompletedOrReported(risAOA, startReconCol) {
+  for (let r = 8; r < risAOA.length; r++) {
+    const markVal = String(risAOA[r][startReconCol] || "").trim();
+    const statusVal = String(risAOA[r][24] || "").trim();
+
+    if (markVal === "") {
+      if (statusVal === "Completed WO Report" || statusVal === "Reported") {
+        risAOA[r][startReconCol] = "NO MATCH";
+      }
+    }
+  }
+
+  return risAOA;
+}
+
+// =========================
+// PASS 6 — FINAL CLEANUP
+// =========================
+
+function finalizeReconcileColumn(risAOA, startReconCol) {
+  for (let r = 8; r < risAOA.length; r++) {
+    const val = String(risAOA[r][startReconCol] || "").trim();
+
+    if (
+      val !== "MATCH" &&
+      val !== "NO MATCH" &&
+      val !== "duplicate-no accession" &&
+      val !== "duplicate-different accession & no radiology"
+    ) {
+      risAOA[r][startReconCol] = "NO MATCH";
+    }
+  }
+
+  return risAOA;
+}
+
+// =========================
+// MAIN RECONCILIATION
+// =========================
+
+async function runReconciliation() {
+  const summary = document.getElementById("summary");
+  summary.textContent = "Processing…";
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const billingFile = document.getElementById("billingFile").files[0];
+    if (!billingFile) {
+      summary.textContent = "ERROR: Please upload the Billing file.";
+      return;
+    }
+
+    const billingData = await billingFile.arrayBuffer();
+    const billingWb = XLSX.read(billingData);
+    const wsRpt = billingWb.Sheets[billingWb.SheetNames[0]];
+    const billAOA = XLSX.utils.sheet_to_json(wsRpt, { header: 1 });
+
+    const risFile = document.getElementById("risFile").files[0];
+    if (!risFile) {
+      summary.textContent = "ERROR: Please upload the RIS file.";
+      return;
+    }
+
+    const risDataBuf = await risFile.arrayBuffer();
+    const risWb = XLSX.read(risDataBuf);
+    const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
+    let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
+
+    // ⭐ Extract Date of Service range (Row 5, Column A)
+    let dosRange = "";
+    const headerLine = String(risAOA[4][0] || "").trim();
+    if (headerLine.startsWith("Report ran for the period")) {
+      dosRange = headerLine.replace("Report ran for the period:", "").trim();
+    }
+    window.reconDOS = dosRange;
+
+    // ⭐ FIX RIS DATE OF SERVICE (Column F = index 5)
+    for (let r = 8; r < risAOA.length; r++) {
+      risAOA[r][5] = fixDate(risAOA[r][5]);
+    }
+
+    // REMOVE FOOTER ROW
+    risAOA = risAOA.filter(row => {
+      const firstCell = String(row[0] || "").trim();
+      return !firstCell.startsWith("Confidential and Proprietary");
+    });
+
+    const billHeaderRow = billAOA[9] || [];
+    const colMap = {};
+    for (let c = 0; c < billHeaderRow.length; c++) {
+      const hdr = String(billHeaderRow[c] || "").trim();
+      if (hdr.length > 0 && !colMap[hdr]) colMap[hdr] = c;
+    }
+
+    const headerRow = 7;
+    const risHeader = risAOA[headerRow] || [];
+    const startReconCol = risHeader.length;
+
+    const newHeaders = [
+      "Reconcile", "Patient", "Location", "DOS", "Charge Post",
+      "Procedure", "ASA Code", "Charge Amt", "Total Payment",
+      "Max Pay Date", "Max Pay Post", "Primary Ins", "Secondary Ins",
+      "Tertiary Ins", "Order Num"
+    ];
+
+    if (!risAOA[headerRow]) risAOA[headerRow] = [];
+    for (let i = 0; i < newHeaders.length; i++) {
+      risAOA[headerRow][startReconCol + i] = newHeaders[i];
+    }
+
+    // RUN PASSES IN CORRECT ORDER
+    risAOA = firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol);
+    risAOA = secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol);
+    risAOA = flagDuplicateNoAccession(risAOA, startReconCol);
+    risAOA = flagDifferentAccessionNoRadiology(risAOA, startReconCol);
+    risAOA = flagNoMatchCompletedOrReported(risAOA, startReconCol);
+    risAOA = finalizeReconcileColumn(risAOA, startReconCol);
+
+    // =========================
+    // SUMMARY CALCULATIONS
+    // =========================
+
+    const totalAppt = risAOA.length - 8;
+
+    let matchCount = 0;
+    let noMatchCount = 0;
+
+    for (let r = 8; r < risAOA.length; r++) {
+      const val = String(risAOA[r][startReconCol] || "").trim().toUpperCase();
+      if (val === "MATCH") matchCount++;
+      if (val === "NO MATCH") noMatchCount++;
+    }
+
+    const pctNoMatch = ((noMatchCount / matchCount) * 100).toFixed(2);
+
+    window.totalAppt = totalAppt;
+    window.matchCount = matchCount;
+    window.no
