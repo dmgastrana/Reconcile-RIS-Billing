@@ -416,4 +416,8 @@ async function runReconciliation() {
 
     window.totalAppt = totalAppt;
     window.matchCount = matchCount;
-    window.no
+    window.noMatchCount = noMatchCount;
+    window.pctNoMatch = pctNoMatch;
+
+    // =========================
+    // WRITE
