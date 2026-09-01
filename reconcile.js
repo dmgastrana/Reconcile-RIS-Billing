@@ -254,6 +254,19 @@ async function runReconciliation() {
     // ⭐ Fix RIS DOS column (index 5)
     for (let r = 8; r < risAOA.length; r++) risAOA[r][5] = fixDate(risAOA[r][5]);
 
+
+
+    
+
+// Fix Date of Signature (index 8)
+for (let r = 8; r < risAOA.length; r++) {
+  risAOA[r][8] = fixDate(risAOA[r][8]);
+}
+
+
+
+    
+
     // Remove footer
     risAOA = risAOA.filter(row => !String(row[0] || "").trim().startsWith("Confidential and Proprietary"));
 
