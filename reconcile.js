@@ -353,10 +353,14 @@ for (let r = 8; r < risAOA.length; r++) {
 // WRITE OUTPUT FILE
 // =========================
 
-// ⭐ Display title + DOS on the HTML site (from RIS row 5)
-let dosRange = String(risAOA[5][0] || "").trim();
+// ⭐ Safe DOS extraction from RIS row 5
+let dosRange = "";
+if (risAOA[5] && risAOA[5][0]) {
+  dosRange = String(risAOA[5][0]).trim();
+}
 window.reconDOS = dosRange;
 
+// ⭐ Display title + DOS on the HTML site
 document.getElementById("reportTitle").textContent =
   "Reconciliation Report - Abbadox with Charge Transactions Detail";
 
