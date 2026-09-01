@@ -353,6 +353,16 @@ for (let r = 8; r < risAOA.length; r++) {
 // WRITE OUTPUT FILE
 // =========================
 
+// ⭐ Display title + DOS on the HTML site (from RIS row 5)
+let dosRange = String(risAOA[5][0] || "").trim();
+window.reconDOS = dosRange;
+
+document.getElementById("reportTitle").textContent =
+  "Reconciliation Report - Abbadox with Charge Transactions Detail";
+
+document.getElementById("reportDOS").textContent =
+  "Date of Service: " + window.reconDOS;
+
 // Build NO MATCH sheet
 const noMatchHeaders = [
   "Modality","Location","Radiologist","Date of Service","Appointment ID",
