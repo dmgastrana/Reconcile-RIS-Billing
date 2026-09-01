@@ -118,10 +118,6 @@
 
     <h2>Reconciliation</h2>
 
-    <!-- ⭐ REPORT TITLE + DATE OF SERVICE DISPLAY -->
-    <div id="reportTitle" style="font-size:20px; font-weight:bold; margin-bottom:6px;"></div>
-    <div id="reportDOS" style="font-size:16px; margin-bottom:20px;"></div>
-
     <!-- BILLING FILE -->
     <label class="upload-btn" for="billingFile">Upload Billing Charge Report</label>
     <input type="file" id="billingFile" onchange="showFileName('billingFile','billingStatus')">
@@ -137,6 +133,10 @@
 
     <!-- SUMMARY OUTPUT -->
     <div id="summary"></div>
+
+    <!-- ⭐ TITLE + DOS SHOULD SHOW HERE (AFTER OUTPUT MESSAGE) ⭐ -->
+    <div id="reportTitle" style="font-size:20px; font-weight:bold; margin-top:20px;"></div>
+    <div id="reportDOS" style="font-size:16px; margin-bottom:20px;"></div>
 
     <!-- SUMMARY TABLE OUTPUT -->
     <div id="resultTable" style="margin-top:20px;"></div>
