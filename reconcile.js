@@ -29,14 +29,20 @@ function cleanCPT(rawCPT) {
 }
 
 function fixDate(v) {
-  if (!v) return v;
+  if (!v) return "";
   let d;
   if (typeof v === "number") {
     const excelEpoch = new Date(Date.UTC(1899, 11, 30));
     d = new Date(excelEpoch.getTime() + v * 86400000);
-  } else d = new Date(v);
-  if (isNaN(d)) return v;
-  return `${String(d.getUTCMonth() + 1).padStart(2,"0")}/${String(d.getUTCDate()).padStart(2,"0")}/${d.getUTCFullYear()}`;
+  } else {
+    d = new Date(v);
+  }
+  if (isNaN(d)) return "";
+  return (
+    String(d.getUTCMonth() + 1).padStart(2, "0") + "/" +
+    String(d.getUTCDate()).padStart(2, "0") + "/" +
+    d.getUTCFullYear()
+  );
 }
 
 // =========================
@@ -204,16 +210,10 @@ function flagNoMatchCompletedOrReported(risAOA, startReconCol) {
 }
 
 // =========================
-// PASS 6 — FINAL CLEANUP (SAFE)
+// PASS 6 — FINAL CLEANUP
 // =========================
 
 function finalizeReconcileColumn(risAOA, startReconCol) {
-  for (let r = 8; r < risAOA.length; r++) {
-    const val = String(risAOA[r][startReconCol] || "").trim();
-    if (!["MATCH","NO MATCH","duplicate-no accession","duplicate-different accession & no radiology"].includes(val)) {
-      continue; // DO NOT auto-create NO MATCH rows
-    }
-  }
   return risAOA;
 }
 
@@ -243,7 +243,7 @@ async function runReconciliation() {
     const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
     let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
-    // ⭐ Extract DOS range (Row 5, Column A)
+    // ⭐ Correct DOS extraction (Row 4)
     let dosRange = "";
     const headerLine = String(risAOA[4][0] || "").trim();
     if (headerLine.startsWith("Report ran for the period")) {
@@ -251,21 +251,11 @@ async function runReconciliation() {
     }
     window.reconDOS = dosRange;
 
-    // ⭐ Fix RIS DOS column (index 5)
+    // Fix RIS DOS column
     for (let r = 8; r < risAOA.length; r++) risAOA[r][5] = fixDate(risAOA[r][5]);
 
-
-
-    
-
-// Fix Date of Signature (index 8)
-for (let r = 8; r < risAOA.length; r++) {
-  risAOA[r][8] = fixDate(risAOA[r][8]);
-}
-
-
-
-    
+    // Fix Date of Signature
+    for (let r = 8; r < risAOA.length; r++) risAOA[r][8] = fixDate(risAOA[r][8]);
 
     // Remove footer
     risAOA = risAOA.filter(row => !String(row[0] || "").trim().startsWith("Confidential and Proprietary"));
@@ -348,17 +338,9 @@ for (let r = 8; r < risAOA.length; r++) {
 
     groupCounts["Grand Total"] = risAOA.length - 8;
     window.groupCounts = groupCounts;
-
 // =========================
 // WRITE OUTPUT FILE
 // =========================
-
-// ⭐ Safe DOS extraction from RIS row 5
-let dosRange = "";
-if (risAOA[5] && risAOA[5][0]) {
-  dosRange = String(risAOA[5][0]).trim();
-}
-window.reconDOS = dosRange;
 
 // ⭐ Display title + DOS on the HTML site
 document.getElementById("reportTitle").textContent =
