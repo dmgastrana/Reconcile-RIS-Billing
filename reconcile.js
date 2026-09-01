@@ -336,70 +336,82 @@ async function runReconciliation() {
     groupCounts["Grand Total"] = risAOA.length - 8;
     window.groupCounts = groupCounts;
 
-   
-    // =========================
-    // WRITE OUTPUT FILE
-    // =========================
 
-    const noMatchHeaders = [
-      "Modality","Location","Radiologist","Date of Service","Appointment ID",
-      "Accession Number","Date of Signature","Dictation Status","MRN","Patient Name",
-      "Patient DOB","Procedure","Exam Code","CPT Code","Appointment Status",
-      "Primary Payer","Secondary Payer","Reconcile"
+// =========================
+// WRITE OUTPUT FILE
+// =========================
+
+// Build NO MATCH sheet
+const noMatchHeaders = [
+  "Modality","Location","Radiologist","Date of Service","Appointment ID",
+  "Accession Number","Date of Signature","Dictation Status","MRN","Patient Name",
+  "Patient DOB","Procedure","Exam Code","CPT Code","Appointment Status",
+  "Primary Payer","Secondary Payer","Reconcile"
+];
+
+const noMatchSheet = [];
+
+// ⭐ Copy RIS rows 1–7 (indexes 0–6)
+for (let r = 0; r <= 6; r++) {
+  noMatchSheet.push([...risAOA[r]]);
+}
+
+// ⭐ Insert your custom NO MATCH header at row 8 (index 7)
+noMatchSheet.push(noMatchHeaders);
+
+// ⭐ Insert filtered NO MATCH rows starting at row 9 (index 8)
+for (let r = 8; r < risAOA.length; r++) {
+  const val = String(risAOA[r][startReconCol] || "").trim();
+  const statusVal = String(risAOA[r][24] || "").trim();
+
+  if (val === "NO MATCH" && (statusVal === "Completed WO Report" || statusVal === "Reported")) {
+
+    const row = [
+      risAOA[r][0]  || "",
+      risAOA[r][1]  || "",
+      risAOA[r][4]  || "",
+      risAOA[r][5]  || "",
+      risAOA[r][6]  || "",
+      risAOA[r][7]  || "",
+      risAOA[r][8]  || "",
+      risAOA[r][9]  || "",
+      risAOA[r][10] || "",
+      risAOA[r][11] || "",
+      risAOA[r][12] || "",
+      risAOA[r][17] || "",
+      risAOA[r][18] || "",
+      risAOA[r][19] || "",
+      risAOA[r][24] || "",
+      risAOA[r][37] || "",
+      risAOA[r][38] || "",
+      risAOA[r][startReconCol] || ""
     ];
 
-    const noMatchSheet = [];
-    noMatchSheet.push(noMatchHeaders);
-
-    for (let r = 8; r < risAOA.length; r++) {
-      const val = String(risAOA[r][startReconCol] || "").trim();
-      const statusVal = String(risAOA[r][24] || "").trim();
-
-      // TRUE NO MATCH RULE
-      if (val === "NO MATCH" && (statusVal === "Completed WO Report" || statusVal === "Reported")) {
-
-        const row = [
-          risAOA[r][0]  || "",   // Modality
-          risAOA[r][1]  || "",   // Location
-          risAOA[r][4]  || "",   // Radiologist
-          risAOA[r][5]  || "",   // Date of Service
-          risAOA[r][6]  || "",   // Appointment ID
-          risAOA[r][7]  || "",   // Accession Number
-          risAOA[r][8]  || "",   // Date of Signature
-          risAOA[r][9]  || "",   // Dictation Status
-          risAOA[r][10] || "",   // MRN
-          risAOA[r][11] || "",   // Patient Name
-          risAOA[r][12] || "",   // Patient DOB
-          risAOA[r][17] || "",   // Procedure
-          risAOA[r][18] || "",   // Exam Code
-          risAOA[r][19] || "",   // CPT Code
-          risAOA[r][24] || "",   // Appointment Status
-          risAOA[r][37] || "",   // Primary Payer
-          risAOA[r][38] || "",   // Secondary Payer
-          risAOA[r][startReconCol] || "" // Reconcile
-        ];
-
-        noMatchSheet.push(row);
-      }
-    }
-
-    // Create workbook
-    const outWb = XLSX.utils.book_new();
-
-    // Main sheet
-    const outSheet = XLSX.utils.aoa_to_sheet(risAOA);
-    XLSX.utils.book_append_sheet(outWb, outSheet, "RIS - Appointment Procedure Sum");
-
-    // NO MATCH sheet
-    const noMatchOut = XLSX.utils.aoa_to_sheet(noMatchSheet);
-    XLSX.utils.book_append_sheet(outWb, noMatchOut, "NO MATCH");
-
-    // Download file
-    XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
-
-    summary.textContent = "Reconciliation complete.\nOutput file downloaded.";
-
-  } catch (err) {
-    summary.textContent = "ERROR: " + err.message;
+    noMatchSheet.push(row);
   }
 }
+
+// Create workbook
+const outWb = XLSX.utils.book_new();
+
+// Main sheet
+const outSheet = XLSX.utils.aoa_to_sheet(risAOA);
+XLSX.utils.book_append_sheet(outWb, outSheet, "RIS - Appointment Procedure Sum");
+
+// NO MATCH sheet
+const noMatchOut = XLSX.utils.aoa_to_sheet(noMatchSheet);
+XLSX.utils.book_append_sheet(outWb, noMatchOut, "NO MATCH");
+
+// Download file
+XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
+
+summary.textContent = "Reconciliation complete.\nOutput file downloaded.";
+
+} catch (err) {
+  summary.textContent = "ERROR: " + err.message;
+}
+}
+
+    
+
+   
