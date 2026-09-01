@@ -349,7 +349,6 @@ for (let r = 8; r < risAOA.length; r++) {
     groupCounts["Grand Total"] = risAOA.length - 8;
     window.groupCounts = groupCounts;
 
-
 // =========================
 // WRITE OUTPUT FILE
 // =========================
@@ -364,12 +363,18 @@ const noMatchHeaders = [
 
 const noMatchSheet = [];
 
-// ⭐ Copy RIS rows 1–7 (indexes 0–6)
-for (let r = 0; r <= 6; r++) {
+// ⭐ Copy ONLY RIS rows 1–5 (indexes 0–4)
+for (let r = 0; r <= 4; r++) {
   noMatchSheet.push([...risAOA[r]]);
 }
 
-// ⭐ Insert your custom NO MATCH header at row 8 (index 7)
+// ⭐ Row 6 = empty
+noMatchSheet.push([]);
+
+// ⭐ Row 7 = empty
+noMatchSheet.push([]);
+
+// ⭐ Row 8 = your custom NO MATCH header
 noMatchSheet.push(noMatchHeaders);
 
 // ⭐ Insert filtered NO MATCH rows starting at row 9 (index 8)
@@ -424,7 +429,3 @@ summary.textContent = "Reconciliation complete.\nOutput file downloaded.";
   summary.textContent = "ERROR: " + err.message;
 }
 }
-
-    
-
-   
