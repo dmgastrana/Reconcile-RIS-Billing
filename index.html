@@ -169,10 +169,15 @@ function showFileName(inputId, statusId) {
 document.getElementById("runBtn").addEventListener("click", async () => {
   document.getElementById("summary").textContent = "Processing…";
 
-  await runReconciliation();
+  try {
+    await runReconciliation();
 
-  document.getElementById("summary").textContent =
-    "Reconciliation complete.\nOutput file downloaded.";
+    document.getElementById("summary").textContent =
+      "Reconciliation complete.\nOutput file downloaded.";
+  } catch (err) {
+    document.getElementById("summary").textContent =
+      "ERROR: " + err.message;
+  }
 
   // Display summary table (values are set inside reconcile.js)
   const summaryBox = document.getElementById("resultTable");
@@ -196,9 +201,6 @@ document.getElementById("runBtn").addEventListener("click", async () => {
     </table>
   `;
 });
-</script>
 
-</body>
-</html>
 
 
