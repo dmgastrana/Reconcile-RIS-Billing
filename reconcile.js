@@ -357,8 +357,10 @@ async function runReconciliation() {
     if (!risFile) { summary.textContent = "ERROR: Please upload the RIS file."; return; }
 
     const risDataBuf = await risFile.arrayBuffer();
+
     const risWb = XLSX.read(risDataBuf);
-    const wsRIS = risWb.Sheets[risWb.SheetNames[0
+const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
+let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
 
     const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
@@ -493,7 +495,5 @@ async function runReconciliation() {
     summary.textContent = "ERROR: " + err.message;
   }
 }
-
-
 
       
