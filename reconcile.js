@@ -384,27 +384,32 @@ async function runReconciliation() {
 
       if (val === "NO MATCH" && (statusVal === "Completed WO Report" || statusVal === "Reported")) {
 
-        const row = [
-          risAOA[r][0]  || "",
-          risAOA[r][1]  || "",
-          risAOA[r][4]  || "",
-          risAOA[r][5]  || "",
-          risAOA[r][6]  || "",
-          risAOA[r][7]  || "",
-          risAOA[r][8]  || "",
-          risAOA[r][9]  || "",
-          risAOA[r][10] || "",
-          risAOA[r][11] || "",
-          risAOA[r][12] || "",
-          risAOA[r][17] || "",
-          risAOA[r][18] || "",
-          risAOA[r][19] || "",
-          risAOA[r][24] || "",
-          risAOA[r][37] || "",
-          risAOA[r][38] || "",
-          risAOA[r][startReconCol] || ""
-        ];
+        
+       const row = [
+  risAOA[r][0]  || "",
+  risAOA[r][1]  || "",
+  risAOA[r][4]  || "",
+  risAOA[r][5]  || "",
+  risAOA[r][6]  || "",
+  risAOA[r][7]  || "",
+  risAOA[r][8]  || "",
+  risAOA[r][9]  || "",
+  risAOA[r][10] || "",
+  risAOA[r][11] || "",
+  risAOA[r][12] || "",
+  risAOA[r][17] || "",
+  risAOA[r][18] || "",
+  risAOA[r][19] || "",
+  risAOA[r][24] || "",
+  risAOA[r][startReconCol] || ""
+];
 
+
+
+
+
+
+        
         noMatchSheet.push(row);
       }
     }
