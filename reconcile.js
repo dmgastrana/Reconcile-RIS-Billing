@@ -360,12 +360,11 @@ async function runReconciliation() {
 
     const noMatchSheet = [];
 
-    // ⭐ Copy ONLY RIS rows 1–5 (indexes 0–4)
-    for (let r = 0; r <= 4;
+   // ⭐ Copy ONLY RIS rows 1–5 (indexes 0–4)
+for (let r = 0; r <= 4; r++) {
+  noMatchSheet.push([...risAOA[r]]);
 
-    // ⭐ Copy ONLY RIS rows 1–5 (indexes 0–4)
-    for (let r = 0; r <= 4; r++) {
-      noMatchSheet.push([...risAOA[r]]);
+
     }
 
     // ⭐ Row 6 = empty
