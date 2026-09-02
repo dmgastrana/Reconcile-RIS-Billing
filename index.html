@@ -7,9 +7,6 @@
   <!-- SheetJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <!-- Reconciliation Logic -->
-  <script src="reconcile.js"></script>
-
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -134,7 +131,7 @@
     <!-- SUMMARY OUTPUT -->
     <div id="summary"></div>
 
-    <!-- ⭐ TITLE + DOS SHOULD SHOW HERE (AFTER OUTPUT MESSAGE) ⭐ -->
+    <!-- TITLE + DOS -->
     <div id="reportTitle" style="font-size:20px; font-weight:bold; margin-top:20px;"></div>
     <div id="reportDOS" style="font-size:16px; margin-bottom:20px;"></div>
 
@@ -179,7 +176,6 @@ document.getElementById("runBtn").addEventListener("click", async () => {
       "ERROR: " + err.message;
   }
 
-  // Display summary table (values are set inside reconcile.js)
   const summaryBox = document.getElementById("resultTable");
 
   summaryBox.innerHTML = `
@@ -201,6 +197,14 @@ document.getElementById("runBtn").addEventListener("click", async () => {
     </table>
   `;
 });
+</script>
+
+<!-- ⭐ MOVE reconcile.js TO THE VERY BOTTOM ⭐ -->
+<script src="reconcile.js"></script>
+
+</body>
+</html>
+
 
 
 
