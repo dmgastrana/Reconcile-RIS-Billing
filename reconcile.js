@@ -363,8 +363,6 @@ const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
 let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
 
-    const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
-    let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
     // ⭐ Correct DOS extraction (Row 3)
     let dosRange = "";
@@ -496,4 +494,4 @@ let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
   }
 }
 
-      
+
