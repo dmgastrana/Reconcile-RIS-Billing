@@ -218,6 +218,124 @@ function finalizeReconcileColumn(risAOA, startReconCol) {
 }
 
 // =========================
+// ⭐ BUILD 35‑COLUMN RIS OUTPUT SHEET
+// =========================
+
+function buildRISOutput(risAOA, startReconCol) {
+
+  const header = [
+    "Modality","Location","Resource Name","Technologist","Radiologist","Date of Service",
+    "Appointment ID","Accession Number","Dictation Status","MRN","Patient Name","Patient DOB",
+    "Procedure","Exam Code","CPT Code","Appointment Status","Order Priority","Referring Provider",
+    "Payer Attached to Procedure","Primary Payer","Secondary Payer",
+    "Reconcile","Patient","Location","DOS","Charge Post","Procedure","ASA Code","Charge Amt",
+    "Total Payment","Max Pay Date","Max Pay Post","Primary Ins","Secondary Ins","Tertiary Ins","Order Num"
+  ];
+
+  const out = [];
+  out.push(header);
+
+  for (let r = 8; r < risAOA.length; r++) {
+
+    const row = [
+
+      risAOA[r][0],  // Modality
+      risAOA[r][1],  // Location
+      risAOA[r][2],  // Resource Name
+      risAOA[r][3],  // Technologist
+      risAOA[r][4],  // Radiologist
+      risAOA[r][5],  // DOS
+      risAOA[r][6],  // Appt ID
+      risAOA[r][7],  // Accession
+      risAOA[r][9],  // Dictation Status
+      risAOA[r][10], // MRN
+      risAOA[r][11], // Patient Name
+      risAOA[r][12], // DOB
+      risAOA[r][17], // Procedure
+      risAOA[r][18], // Exam Code
+      risAOA[r][19], // CPT
+      risAOA[r][24], // Appt Status
+      risAOA[r][26], // Order Priority
+      risAOA[r][28], // Referring Provider
+      risAOA[r][36], // Payer Attached
+      risAOA[r][37], // Primary Payer
+      risAOA[r][38], // Secondary Payer
+
+      // Reconcile columns
+      risAOA[r][startReconCol],      // Reconcile
+      risAOA[r][startReconCol+1],    // Patient
+      risAOA[r][startReconCol+2],    // Location
+      risAOA[r][startReconCol+3],    // DOS
+      risAOA[r][startReconCol+4],    // Charge Post
+      risAOA[r][startReconCol+5],    // Procedure
+      risAOA[r][startReconCol+6],    // ASA Code
+      risAOA[r][startReconCol+7],    // Charge Amt
+      risAOA[r][startReconCol+8],    // Total Payment
+      risAOA[r][startReconCol+9],    // Max Pay Date
+      risAOA[r][startReconCol+10],   // Max Pay Post
+      risAOA[r][startReconCol+11],   // Primary Ins
+      risAOA[r][startReconCol+12],   // Secondary Ins
+      risAOA[r][startReconCol+13],   // Tertiary Ins
+      risAOA[r][startReconCol+14]    // Order Num
+    ];
+
+    out.push(row);
+  }
+
+  return out;
+}
+
+// =========================
+// ⭐ BUILD 18‑COLUMN NO MATCH SHEET
+// =========================
+
+function buildNoMatchSheet(risAOA, startReconCol) {
+
+  const header = [
+    "Modality","Location","Radiologist","Date of Service","Appointment ID",
+    "Accession Number","Date of Signature","Dictation Status","MRN","Patient Name",
+    "Patient DOB","Procedure","Exam Code","CPT Code","Appointment Status",
+    "Primary Payer","Secondary Payer","Reconcile"
+  ];
+
+  const out = [];
+  out.push(header);
+
+  for (let r = 8; r < risAOA.length; r++) {
+
+    const val = String(risAOA[r][startReconCol] || "").trim();
+    const statusVal = String(risAOA[r][24] || "").trim();
+
+    if (val === "NO MATCH" && (statusVal === "Completed WO Report" || statusVal === "Reported")) {
+
+      const row = [
+        risAOA[r][0],  // Modality
+        risAOA[r][1],  // Location
+        risAOA[r][4],  // Radiologist
+        risAOA[r][5],  // DOS
+        risAOA[r][6],  // Appt ID
+        risAOA[r][7],  // Accession
+        risAOA[r][8],  // Date of Signature
+        risAOA[r][9],  // Dictation Status
+        risAOA[r][10], // MRN
+        risAOA[r][11], // Patient Name
+        risAOA[r][12], // DOB
+        risAOA[r][17], // Procedure
+        risAOA[r][18], // Exam Code
+        risAOA[r][19], // CPT Code
+        risAOA[r][24], // Appt Status
+        risAOA[r][37], // Primary Payer
+        risAOA[r][38], // Secondary Payer
+        risAOA[r][startReconCol] // Reconcile
+      ];
+
+      out.push(row);
+    }
+  }
+
+  return out;
+}
+// =========================
 // MAIN RECONCILIATION
 // =========================
 
@@ -240,6 +358,9 @@ async function runReconciliation() {
 
     const risDataBuf = await risFile.arrayBuffer();
     const risWb = XLSX.read(risDataBuf);
+    const wsRIS = risWb.Sheets[risWb.SheetNames[0
+
+
     const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
     let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
@@ -257,9 +378,10 @@ async function runReconciliation() {
     // Fix Date of Signature
     for (let r = 8; r < risAOA.length; r++) risAOA[r][8] = fixDate(risAOA[r][8]);
 
-    // Remove footer
+    // Remove footer rows
     risAOA = risAOA.filter(row => !String(row[0] || "").trim().startsWith("Confidential and Proprietary"));
 
+    // Build billing column map
     const billHeaderRow = billAOA[9] || [];
     const colMap = {};
     for (let c = 0; c < billHeaderRow.length; c++) {
@@ -267,8 +389,10 @@ async function runReconciliation() {
       if (hdr && !colMap[hdr]) colMap[hdr] = c;
     }
 
+    // Add reconcile columns to RIS header row
     const headerRow = 7;
     const startReconCol = (risAOA[headerRow] || []).length;
+
     const newHeaders = [
       "Reconcile","Patient","Location","DOS","Charge Post","Procedure","ASA Code",
       "Charge Amt","Total Payment","Max Pay Date","Max Pay Post","Primary Ins",
@@ -280,6 +404,7 @@ async function runReconciliation() {
       risAOA[headerRow][startReconCol + i] = newHeaders[i];
     }
 
+    // ⭐ Run all reconciliation passes
     risAOA = firstPass_OrderNum(risAOA, billAOA, colMap, startReconCol);
     risAOA = secondPass_NameCPT(risAOA, billAOA, colMap, startReconCol);
     risAOA = flagDuplicateNoAccession(risAOA, startReconCol);
@@ -300,7 +425,6 @@ async function runReconciliation() {
       const statusVal = String(risAOA[r][24] || "").trim();
 
       if (val === "MATCH") matchCount++;
-
       if (val === "NO MATCH" && (statusVal === "Completed WO Report" || statusVal === "Reported")) {
         noMatchCount++;
       }
@@ -340,89 +464,25 @@ async function runReconciliation() {
     window.groupCounts = groupCounts;
 
     // =========================
-    // WRITE OUTPUT FILE
-    // =========================
+    // WRITE OUTPUT FILE (⭐ Corrected)
+// =========================
 
-    // ⭐ Display title + DOS on the HTML site
-    document.getElementById("reportTitle").textContent =
-      "Reconciliation Report - Abbadox with Charge Transactions Detail";
+    // Build 35‑column RIS output sheet
+    const risOutput = buildRISOutput(risAOA, startReconCol);
 
-    document.getElementById("reportDOS").textContent =
-      "Date of Service: " + window.reconDOS;
-
-    // Build NO MATCH sheet
-    const noMatchHeaders = [
-      "Modality","Location","Radiologist","Date of Service","Appointment ID",
-      "Accession Number","Date of Signature","Dictation Status","MRN","Patient Name",
-      "Patient DOB","Procedure","Exam Code","CPT Code","Appointment Status",
-      "Primary Payer","Secondary Payer","Reconcile"
-    ];
-
-    const noMatchSheet = [];
-
-   // ⭐ Copy ONLY RIS rows 1–5 (indexes 0–4)
-for (let r = 0; r <= 4; r++) {
-  noMatchSheet.push([...risAOA[r]]);
-
-
-    }
-
-    // ⭐ Row 6 = empty
-    noMatchSheet.push([]);
-
-    // ⭐ Row 7 = empty
-    noMatchSheet.push([]);
-
-    // ⭐ Row 8 = your custom NO MATCH header
-    noMatchSheet.push(noMatchHeaders);
-
-    // ⭐ Insert filtered NO MATCH rows starting at row 9 (index 8)
-    for (let r = 8; r < risAOA.length; r++) {
-      const val = String(risAOA[r][startReconCol] || "").trim();
-      const statusVal = String(risAOA[r][24] || "").trim();
-
-      if (val === "NO MATCH" && (statusVal === "Completed WO Report" || statusVal === "Reported")) {
-
-        
-       const row = [
-  risAOA[r][0]  || "",
-  risAOA[r][1]  || "",
-  risAOA[r][4]  || "",
-  risAOA[r][5]  || "",
-  risAOA[r][6]  || "",
-  risAOA[r][7]  || "",
-  risAOA[r][8]  || "",
-  risAOA[r][9]  || "",
-  risAOA[r][10] || "",
-  risAOA[r][11] || "",
-  risAOA[r][12] || "",
-  risAOA[r][17] || "",
-  risAOA[r][18] || "",
-  risAOA[r][19] || "",
-  risAOA[r][24] || "",
-  risAOA[r][startReconCol] || ""
-];
-
-
-
-
-
-
-        
-        noMatchSheet.push(row);
-      }
-    }
+    // Build 18‑column NO MATCH sheet
+    const noMatchOutput = buildNoMatchSheet(risAOA, startReconCol);
 
     // Create workbook
     const outWb = XLSX.utils.book_new();
 
-    // Main sheet
-    const outSheet = XLSX.utils.aoa_to_sheet(risAOA);
-    XLSX.utils.book_append_sheet(outWb, outSheet, "RIS - Appointment Procedure Sum");
+    // Append RIS output sheet
+    const risSheet = XLSX.utils.aoa_to_sheet(risOutput);
+    XLSX.utils.book_append_sheet(outWb, risSheet, "RIS - Appointment Procedure Sum");
 
-    // NO MATCH sheet
-    const noMatchOut = XLSX.utils.aoa_to_sheet(noMatchSheet);
-    XLSX.utils.book_append_sheet(outWb, noMatchOut, "NO MATCH");
+    // Append NO MATCH sheet
+    const noMatchSheet = XLSX.utils.aoa_to_sheet(noMatchOutput);
+    XLSX.utils.book_append_sheet(outWb, noMatchSheet, "NO MATCH");
 
     // Download file
     XLSX.writeFile(outWb, "Reconciliation_Output.xlsx");
@@ -433,8 +493,6 @@ for (let r = 0; r <= 4; r++) {
     summary.textContent = "ERROR: " + err.message;
   }
 }
-
-
 
 
 
