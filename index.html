@@ -163,7 +163,13 @@ function showFileName(inputId, statusId) {
   }
 }
 
-document.getElementById("runBtn").addEventListener("click", async () => {
+
+  
+
+
+
+
+  document.getElementById("runBtn").addEventListener("click", async () => {
   document.getElementById("summary").textContent = "Processing…";
 
   try {
@@ -171,11 +177,29 @@ document.getElementById("runBtn").addEventListener("click", async () => {
 
     document.getElementById("summary").textContent =
       "Reconciliation complete.\nOutput file downloaded.";
+
+    // Title
+    document.getElementById("reportTitle").textContent =
+      "Reconciliation Report - Abbadox with Charge Transactions Detail";
+
+    // Date of Service
+    document.getElementById("reportDOS").textContent =
+      "Date of Service: " + window.reconDOS;
+
   } catch (err) {
     document.getElementById("summary").textContent =
       "ERROR: " + err.message;
   }
 
+
+
+
+
+
+  
+
+
+  
   const summaryBox = document.getElementById("resultTable");
 
   summaryBox.innerHTML = `
