@@ -163,13 +163,7 @@ function showFileName(inputId, statusId) {
   }
 }
 
-
-  
-
-
-
-
-  document.getElementById("runBtn").addEventListener("click", async () => {
+document.getElementById("runBtn").addEventListener("click", async () => {
   document.getElementById("summary").textContent = "Processing…";
 
   try {
@@ -178,11 +172,9 @@ function showFileName(inputId, statusId) {
     document.getElementById("summary").textContent =
       "Reconciliation complete.\nOutput file downloaded.";
 
-    // Title
     document.getElementById("reportTitle").textContent =
       "Reconciliation Report - Abbadox with Charge Transactions Detail";
 
-    // Date of Service
     document.getElementById("reportDOS").textContent =
       "Date of Service: " + window.reconDOS;
 
@@ -191,20 +183,10 @@ function showFileName(inputId, statusId) {
       "ERROR: " + err.message;
   }
 
-
-
-
-
-
-  
-
-
-  
   const summaryBox = document.getElementById("resultTable");
 
   summaryBox.innerHTML = `
     <table border="1" cellpadding="6" cellspacing="0" style="margin-top:10px;">
-
       <tr><th colspan="2">Summary</th></tr>
       <tr><td>Total Appointment ID</td><td>${window.totalAppt}</td></tr>
       <tr><td>MATCH</td><td>${window.matchCount}</td></tr>
@@ -217,7 +199,6 @@ function showFileName(inputId, statusId) {
       <tr><td>MATCH</td><td>${window.groupCounts["MATCH"]}</td></tr>
       <tr><td>NO MATCH</td><td>${window.groupCounts["NO MATCH"]}</td></tr>
       <tr><td>Grand Total</td><td>${window.groupCounts["Grand Total"]}</td></tr>
-
     </table>
   `;
 });
@@ -228,7 +209,4 @@ function showFileName(inputId, statusId) {
 
 </body>
 </html>
-
-
-
 
