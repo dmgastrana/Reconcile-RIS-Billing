@@ -362,15 +362,43 @@ async function runReconciliation() {
 const wsRIS = risWb.Sheets[risWb.SheetNames[0]];
 let risAOA = XLSX.utils.sheet_to_json(wsRIS, { header: 1 });
 
+    
 
 
-    // ⭐ Correct DOS extraction (Row 3)
-    let dosRange = "";
-    const headerLine = String(risAOA[3][0] || "").trim();
-    if (headerLine.startsWith("Report ran for the period")) {
-      dosRange = headerLine.replace("Report ran for the period:", "").trim();
+
+   // ⭐ Extract DOS range from RIS row 3
+let dosRange = "";
+let headerLine = "";
+
+if (risAOA[3]) {
+  for (let c = 0; c < risAOA[3].length; c++) {
+    const cell = String(risAOA[3][c] || "").trim();
+    if (cell.toLowerCase().includes("report ran for the period")) {
+      headerLine = cell;
+      break;
     }
-    window.reconDOS = dosRange;
+  }
+}
+
+if (headerLine.includes(":")) {
+  dosRange = headerLine.split(":")[1].trim();
+}
+
+window.reconDOS = dosRange;
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
     // Fix RIS DOS column
     for (let r = 8; r < risAOA.length; r++) risAOA[r][5] = fixDate(risAOA[r][5]);
